@@ -7,12 +7,14 @@ import {
 } from "node:http";
 import { randomUUID } from "node:crypto";
 import next from "next";
-import { WebSocket, WebSocketServer } from "ws";
+import type { WebSocket as WSWebSocket } from "ws";
+import { WebSocketServer } from "ws";
 import { Socket } from "node:net";
+import { userManager } from "@/lib/podcast/userManager";
+import { podSpaceManager } from "@/lib/podcast/podSpaceManager";
 
 const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
 const handle = nextApp.getRequestHandler();
-const clients: Map<WebSocket, string> = new Map();
 
 nextApp.prepare().then(() => {
   const server: Server = createServer(
@@ -22,13 +24,14 @@ nextApp.prepare().then(() => {
   );
 
   const wss = new WebSocketServer({ noServer: true });
+  const userMan = new userManager();
+  const podMan = new podSpaceManager();
 
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WSWebSocket) => {
     const clientId = randomUUID();
-    // clients.add("yatharth", ws);
-    clients.set(ws, clientId);
 
     console.log("New client connected");
+    userMan.addUser(clientId, ws);
 
     //Send the new id to the user
     ws.send(
@@ -38,33 +41,27 @@ nextApp.prepare().then(() => {
       })
     );
 
-    ws.on("message", (message: string) => {
-      console.log(`Message received: ${message}`);
-      const data = JSON.parse(message);
-      const receiver = data.receiver;
-      const action = data.action;
-      const content = data.content;
-
-      let receiverWs: WebSocket | null = null;
-      clients.forEach((v, k) => {
-        if (v == receiver) {
-          receiverWs = k;
-        }
-      });
-      if (!receiverWs) {
-        return;
+    ws.on("message", async function (msg) {
+      const { event, data } = JSON.parse(msg.toString());
+      if (event == "createSdpOffer") {
+        podMan.createSdpOffer();
       }
-      (receiverWs as WebSocket).send(
-        JSON.stringify({
-          action: action,
-          content: content,
-        })
-      );
-    });
 
-    ws.on("close", () => {
-      clients.delete(ws);
-      console.log("Client disconnected");
+      //A handler that sends the sdp offer to all the clients in the podSpace.
+      if (event == "sendSdpOffer") {
+        const res = JSON.stringify(
+          await podMan.sendSdpOffer(data.roomId, data.offer, ws)
+        );
+        ws.send(res);
+      }
+
+      //A handler that sends the answer of an sdp offer to all the clinets in the podSpace.
+      if (event == "answer") {
+        const res = JSON.stringify(
+          await podMan.answer(data.roomId, data.answer, ws)
+        );
+        ws.send(res);
+      }
     });
   });
 
