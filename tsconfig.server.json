@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "baseUrl": "src", // 👈 BASE PATH is now `src`
+    "paths": { "@/*": ["*"] },
+    "strict": true
+  },
+  "include": ["src"]
+}

@@ -1,39 +1,33 @@
 "use client";
-import { getUserDevices } from "@/utils/functions/getDevicesAndMedia";
+import { useRouter } from "next/navigation";
 import { useRef } from "react";
-
-export default function MediaSelection() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
+export default function DashBoard() {
+  const router = useRouter();
+  const roomIdRef = useRef<HTMLInputElement>(null);
   return (
-    <div>
-      <div className="flex flex-col gap-10 items-center justify-center">
+    <div className="flex w-full h-full bg-white items-center justify-center">
+      <div>
         <button
-          className="bg-amber-400 h-10 w-3xl"
-          onClick={async () => {
-            const userStream = await getUserDevices();
-            if (videoRef.current && userStream) {
-              videoRef.current.srcObject = userStream;
-            }
-            if (audioRef.current && userStream) {
-              audioRef.current.srcObject = userStream;
-            }
+          className=" text-neutral-950 bg-green-400 h-10 w-28 border rounded-4xl"
+          onClick={() => {
+            router.push("/podcast/caller");
           }}
         >
-          Click To Get Audio & Video info
+          Create a Room
         </button>
-        <div className="flex justify-center items-center">
-          <div className="rounded-4xl bg-white w-1/2 h-96 overflow-hidden">
-            <video
-              className="w-full h-full object-cover"
-              ref={videoRef}
-              autoPlay
-              playsInline
-            ></video>
-            <audio className="w-full" ref={audioRef} controls></audio>
-          </div>
-        </div>
+        <input
+          ref={roomIdRef}
+          type="text"
+          className="bg-black h-10 w-32 mx-10"
+        ></input>
+        <button
+          className="text-neutral-950 bg-yellow-300 h-10 w-28 border rounded-4xl"
+          onClick={() => {
+            router.push(`/podcast/calee?roomId=${roomIdRef.current?.value}`);
+          }}
+        >
+          Join a Room
+        </button>
       </div>
     </div>
   );

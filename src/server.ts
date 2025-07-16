@@ -10,8 +10,8 @@ import next from "next";
 import type { WebSocket as WSWebSocket } from "ws";
 import { WebSocketServer } from "ws";
 import { Socket } from "node:net";
-import { userManager } from "@/lib/podcast/userManager";
-import { podSpaceManager } from "@/lib/podcast/podSpaceManager";
+import { userManager } from "./lib/podcast/userManager";
+import { podSpaceManager } from "./lib/podcast/podSpaceManager";
 
 const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
 const handle = nextApp.getRequestHandler();
@@ -36,15 +36,23 @@ nextApp.prepare().then(() => {
     //Send the new id to the user
     ws.send(
       JSON.stringify({
-        clientId: clientId,
-        data: "Connection eshtabilished successfully",
+        type: "clientIdGenerated",
+        data: clientId,
       })
     );
 
     ws.on("message", async function (msg) {
       const { event, data } = JSON.parse(msg.toString());
-      if (event == "createSdpOffer") {
-        podMan.createSdpOffer();
+      //Logic to assign a room to the user.
+      if (event == "createNewRoom") {
+        const res = JSON.stringify(podMan.createRoom(ws, data.userId));
+        ws.send(res);
+      }
+      if (event == "joinRoom") {
+        const res = JSON.stringify(
+          podMan.joinRoom(ws, data.roomId, data.userId)
+        );
+        ws.send(res);
       }
 
       //A handler that sends the sdp offer to all the clients in the podSpace.
@@ -55,10 +63,18 @@ nextApp.prepare().then(() => {
         ws.send(res);
       }
 
-      //A handler that sends the answer of an sdp offer to all the clinets in the podSpace.
-      if (event == "answer") {
+      //A handler that sends the answer of an sdp offer to all the clients in the podSpace.
+      if (event == "sendAnswer") {
         const res = JSON.stringify(
           await podMan.answer(data.roomId, data.answer, ws)
+        );
+        ws.send(res);
+      }
+
+      //A handler to send the ice candidates
+      if (event == "trickleIce") {
+        const res = JSON.stringify(
+          await podMan.trickleIce(data.roomId, data.iceCandidate, ws)
         );
         ws.send(res);
       }
