@@ -5,6 +5,7 @@ import type { WebSocket as WSWebSocket } from "ws";
 interface Room {
   roomId: string;
   users: User[];
+  creator: WSWebSocket;
 }
 
 interface WsSuccessResponse {
@@ -24,16 +25,12 @@ export class podSpaceManager {
     this.rooms = [];
   }
 
-  public createRoom(ws: WSWebSocket, userId: string) {
+  public createRoom(ws: WSWebSocket) {
     const roomId = randomUUID();
     const newRoom: Room = {
       roomId: roomId,
-      users: [
-        {
-          userId: userId,
-          webSocket: ws,
-        },
-      ],
+      users: [],
+      creator: ws,
     };
     this.rooms.push(newRoom);
     return {
@@ -59,11 +56,19 @@ export class podSpaceManager {
     }
     //add the new user to the room.
     room.users.push(user);
-    console.log("After joining the room has become ", room);
-    return {
-      type: "success",
-      data: "Room successfully joined.",
-    };
+
+    //if the new user is the host, emit the hostJoined event
+    if (room.creator === ws) {
+      return {
+        type: "hostJoined",
+        data: "Host joined the room successfully.",
+      };
+    } else {
+      return {
+        type: "participantJoined",
+        data: "Participant joined the room successfully",
+      };
+    }
   }
 
   /**

@@ -45,10 +45,20 @@ nextApp.prepare().then(() => {
       const { event, data } = JSON.parse(msg.toString());
       //Logic to assign a room to the user.
       if (event == "createNewRoom") {
-        const res = JSON.stringify(podMan.createRoom(ws, data.userId));
+        const res = JSON.stringify(podMan.createRoom(ws));
         ws.send(res);
       }
       if (event == "joinRoom") {
+        const res = podMan.joinRoom(ws, data.roomId, data.userId);
+        if (res.type === "participantJoined") {
+          wss.clients.forEach((client) => {
+            client.send(JSON.stringify(res));
+          });
+        } else {
+          ws.send(JSON.stringify(res));
+        }
+      }
+      if (event == "hostJoin") {
         const res = JSON.stringify(
           podMan.joinRoom(ws, data.roomId, data.userId)
         );

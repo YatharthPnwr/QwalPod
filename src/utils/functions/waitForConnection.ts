@@ -11,7 +11,9 @@ export class WebSocketConnHandle {
 
   async waitForConnection(callback: () => void) {
     if (this.ws.readyState == 1) {
-      clearInterval(this.setIntervalId);
+      if (this.setIntervalId) {
+        clearInterval(this.setIntervalId);
+      }
       callback();
     } else {
       this.setIntervalId = setInterval(() => {

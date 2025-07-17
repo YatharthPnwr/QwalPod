@@ -1,3 +1,5 @@
+import getUserDevices from "./getDevicesAndMedia";
+import { iceCandidate } from "./iceCandidate";
 export async function receiveCall(
   receiver: WebSocket,
   roomId: string,
@@ -5,6 +7,8 @@ export async function receiveCall(
 ) {
   const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
   const peerConnection = new RTCPeerConnection(config);
+  await getUserDevices(peerConnection);
+  iceCandidate(receiver, roomId, peerConnection);
   peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);

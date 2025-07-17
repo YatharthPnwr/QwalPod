@@ -1,4 +1,4 @@
-export async function getUserMedia() {
+export async function getDisplayMedia() {
   try {
     const DisplayMedia = await navigator.mediaDevices.getDisplayMedia();
     return DisplayMedia;
@@ -7,13 +7,17 @@ export async function getUserMedia() {
   }
 }
 
-export async function getUserDevices(): Promise<MediaStream | null> {
+export default async function getUserDevices(
+  peerConnection: RTCPeerConnection
+) {
   try {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
       video: true,
     });
-    return mediaStream;
+    mediaStream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, mediaStream);
+    });
   } catch (e) {
     console.log(e);
     return null;
