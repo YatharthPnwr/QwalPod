@@ -1,3 +1,4 @@
+import { Dispatch, SetStateAction } from "react";
 export async function getDisplayMedia() {
   try {
     const DisplayMedia = await navigator.mediaDevices.getDisplayMedia();
@@ -8,7 +9,9 @@ export async function getDisplayMedia() {
 }
 
 export default async function getUserDevices(
-  peerConnection: RTCPeerConnection
+  peerConnection: RTCPeerConnection,
+  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>
 ) {
   try {
     const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -18,6 +21,11 @@ export default async function getUserDevices(
     mediaStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, mediaStream);
     });
+    const audioTrack = new MediaStream(mediaStream.getAudioTracks());
+    console.log("THe audio trackckckckck is ", audioTrack);
+    setSrcAudioTrack(audioTrack);
+    const videoTrack = new MediaStream(mediaStream.getVideoTracks());
+    setSrcVideoTrack(videoTrack);
   } catch (e) {
     console.log(e);
     return null;
