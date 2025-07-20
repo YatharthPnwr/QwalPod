@@ -1,11 +1,19 @@
 import { Dispatch, SetStateAction } from "react";
+import { updateMediaStream } from "./getDevicesAndMedia";
+import getUserMedia from "@/utils/functions/getDevicesAndMedia";
 
 export function iceCandidate(
   sender: WebSocket,
   roomId: string,
   peerConnection: RTCPeerConnection,
   setPeerAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>
+  setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setVideoOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
+  setAudioInputOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
+  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  localStream: MediaStream | null,
+  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>
 ) {
   //listen for local ICE candidate.
   peerConnection.onicecandidate = (event) => {
@@ -48,5 +56,35 @@ export function iceCandidate(
 
     setPeerAudioTrack(audioStream);
     setPeerVideoTrack(videoStream);
+  };
+
+  navigator.mediaDevices.ondevicechange = async () => {
+    console.log("DEVICE CHANGED");
+    await updateMediaStream({
+      setVideoOptions,
+      setAudioInputOptions,
+      setSrcAudioTrack,
+      setSrcVideoTrack,
+    });
+
+    if (localStream && peerConnection) {
+      localStream.getTracks().forEach((track) => {
+        const sender = peerConnection
+          .getSenders()
+          .find((s) => s.track === track);
+        if (sender) {
+          peerConnection.removeTrack(sender);
+        }
+      });
+    }
+
+    if (peerConnection) {
+      await getUserMedia(
+        peerConnection,
+        setSrcAudioTrack,
+        setSrcVideoTrack,
+        setLocalStream
+      );
+    }
   };
 }

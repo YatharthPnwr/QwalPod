@@ -20,8 +20,8 @@ export default function Controls(props: ControlsInput) {
     useState<boolean>(false);
   const [videoSelectionModal, setVideoSelectionModal] =
     useState<boolean>(false);
-  const [micOn, setMicOn] = useState<boolean>(false);
-  const [videoOn, setVideoOn] = useState<boolean>(false);
+  const [micOn, setMicOn] = useState<boolean>(true);
+  const [videoOn, setVideoOn] = useState<boolean>(true);
 
   //get the avaliable connected devices.
   async function getConnectedDevices(type: string) {
@@ -45,7 +45,25 @@ export default function Controls(props: ControlsInput) {
     };
     audioOptions();
     videoOptions();
+    const closeModal = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAudioSelectionModal(false);
+        setVideoSelectionModal(false);
+      }
+    };
+
+    const clickOutside = () => {
+      setAudioSelectionModal(false);
+      setVideoSelectionModal(false);
+    };
+
+    window.addEventListener("keydown", closeModal);
+    return () => {
+      window.removeEventListener("keydown", closeModal);
+      window.removeEventListener("mousedown", clickOutside);
+    };
   }, []);
+
   return (
     <>
       <div className="w-full h-full flex items-center justify-center">
@@ -62,12 +80,26 @@ export default function Controls(props: ControlsInput) {
               {micOn ? (
                 <Mic
                   onClick={() => {
+                    const sender = props.peerConnection
+                      .getSenders()
+                      .find((s) => s.track?.kind === "audio");
+
+                    if (sender && sender.track) {
+                      sender.track.enabled = false;
+                    }
                     setMicOn(false);
                   }}
                 />
               ) : (
                 <MicOff
                   onClick={() => {
+                    const sender = props.peerConnection
+                      .getSenders()
+                      .find((s) => s.track?.kind === "audio");
+
+                    if (sender && sender.track) {
+                      sender.track.enabled = true;
+                    }
                     setMicOn(true);
                   }}
                 />
@@ -75,11 +107,11 @@ export default function Controls(props: ControlsInput) {
             </div>
             {audioSelectionModal && (
               <div className="SelectAudioInputModal absolute rounded-2xl bottom-32 w-52 h-48 bg-gray-800 p-5">
-                <ul className="">
+                <ul className="overflow-y-scroll">
                   {props.audioInputOptions?.map((audioOption, key) => (
                     <li
                       key={key}
-                      className="my-2"
+                      className="my-2 hover:bg-cyan-950 hover:rounded-xs"
                       onClick={async () => {
                         await switchMedia({
                           kind: "audioinput",
@@ -95,7 +127,6 @@ export default function Controls(props: ControlsInput) {
                       }}
                     >
                       {key + 1} . {audioOption.label}
-                      <hr className="opacity-60 bg-gray-500 m-2" />
                     </li>
                   ))}
                 </ul>
@@ -114,12 +145,24 @@ export default function Controls(props: ControlsInput) {
               {videoOn ? (
                 <Camera
                   onClick={() => {
+                    const videoTracks = props.localStream
+                      ?.getTracks()
+                      .find((track) => track.kind === "video");
+                    if (videoTracks?.enabled) {
+                      videoTracks.enabled = false;
+                    }
                     setVideoOn(false);
                   }}
                 />
               ) : (
                 <CameraOff
                   onClick={() => {
+                    const videoTracks = props.localStream
+                      ?.getTracks()
+                      .find((track) => track.kind === "video");
+                    if (videoTracks?.enabled == false) {
+                      videoTracks.enabled = true;
+                    }
                     setVideoOn(true);
                   }}
                 />
@@ -131,7 +174,7 @@ export default function Controls(props: ControlsInput) {
                   {props.videoOptions?.map((videoOption, key) => (
                     <li
                       key={key}
-                      className="my-2 hover:bg-cyan-950"
+                      className="my-2 hover:bg-cyan-950 hover:rounded-xs"
                       onClick={async () => {
                         await switchMedia({
                           kind: "videoinput",

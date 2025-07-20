@@ -10,7 +10,10 @@ export async function receiveCall(
   setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
   setPeerAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
   setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>
+  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>,
+  setVideoOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
+  setAudioInputOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
+  localstream: MediaStream | null
 ) {
   await getUserDevices(
     peerConnection,
@@ -23,7 +26,13 @@ export async function receiveCall(
     roomId,
     peerConnection,
     setPeerAudioTrack,
-    setPeerVideoTrack
+    setPeerVideoTrack,
+    setVideoOptions,
+    setAudioInputOptions,
+    setSrcAudioTrack,
+    setSrcVideoTrack,
+    localstream,
+    setLocalStream
   );
   peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
   const answer = await peerConnection.createAnswer();

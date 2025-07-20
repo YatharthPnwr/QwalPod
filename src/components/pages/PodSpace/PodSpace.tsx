@@ -7,7 +7,6 @@ import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import { useSearchParams } from "next/navigation";
 import getUserMedia from "@/utils/functions/getDevicesAndMedia";
 import Controls from "@/components/ui/Controls";
-import { updateMediaStream } from "@/utils/functions/getDevicesAndMedia";
 
 export default function PodSpacePage({ userRole }: { userRole: string }) {
   const webSocket = useRef<WebSocket>(null);
@@ -84,13 +83,14 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           const newPeerConnection = new RTCPeerConnection(config);
           console.log("The new host RTC PEERCONNECTION is", newPeerConnection);
           peerConnection.current = newPeerConnection;
-          setPc(true);
+
           await getUserMedia(
             newPeerConnection,
             setSrcAudioTrack,
             setSrcVideoTrack,
             setLocalStream
           );
+          setPc(true);
 
           const sdpOfferSendAndCreate = async () => {
             if (!webSocket.current || !newPeerConnection) {
@@ -112,7 +112,13 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
               localStorage.getItem("roomId") as string,
               newPeerConnection,
               setPeerAudioTrack,
-              setPeerVideoTrack
+              setPeerVideoTrack,
+              setVideoOptions,
+              setAudioInputOptions,
+              setSrcAudioTrack,
+              setSrcVideoTrack,
+              localStream,
+              setLocalStream
             );
           };
           sdpOfferSendAndCreate();
@@ -128,7 +134,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         };
         const newPeerConnection = new RTCPeerConnection(config);
         peerConnection.current = newPeerConnection;
-        setPc(true);
+
         await receiveCall(
           webSocket.current,
           localStorage.getItem("roomId") as string,
@@ -138,8 +144,12 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           setSrcVideoTrack,
           setPeerAudioTrack,
           setPeerVideoTrack,
-          setLocalStream
+          setLocalStream,
+          setVideoOptions,
+          setAudioInputOptions,
+          localStream
         );
+        setPc(true);
       } else if (res.type == "answer" && userRole === "caller") {
         const remoteDesc = new RTCSessionDescription(res.data);
         if (!peerConnection.current) {
@@ -187,38 +197,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         );
       });
     }
-    if (navigator.mediaDevices && peerConnection.current != null) {
-      navigator.mediaDevices.ondevicechange = async () => {
-        await updateMediaStream({
-          setVideoOptions,
-          setAudioInputOptions,
-          setSrcAudioTrack,
-          setSrcVideoTrack,
-        });
-        //Remove the current tracks
-        if (localStream && pc && peerConnection.current) {
-          localStream.getTracks().forEach((track) => {
-            const sender = peerConnection
-              .current!.getSenders()
-              .find((s) => s.track === track);
-            if (sender) {
-              peerConnection.current!.removeTrack(sender);
-            }
-          });
-        }
-        //add the new tracks
-        if (pc && peerConnection.current) {
-          await getUserMedia(
-            peerConnection.current,
-            setSrcAudioTrack,
-            setSrcVideoTrack,
-            setLocalStream
-          );
-        }
-      };
-    }
   }, []);
-
   return (
     <>
       <div className="w-screen h-screen grid grid-rows-[75%_25%]">
@@ -227,6 +206,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
             <video
               autoPlay
               playsInline
+              muted
               ref={(video) => {
                 if (video && srcVideoTrack) {
                   video.srcObject = srcVideoTrack;
@@ -246,6 +226,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
             <video
               autoPlay
               playsInline
+              muted
               ref={(video) => {
                 if (video && peerVideoTrack) {
                   video.srcObject = peerVideoTrack;
