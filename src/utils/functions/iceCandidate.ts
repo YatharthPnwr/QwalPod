@@ -1,4 +1,5 @@
 import { Dispatch, SetStateAction } from "react";
+
 export function iceCandidate(
   sender: WebSocket,
   roomId: string,
@@ -6,8 +7,8 @@ export function iceCandidate(
   setPeerAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
   setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>
 ) {
-  //Listener for local ICE candidate.
-  peerConnection.addEventListener("icecandidate", (event) => {
+  //listen for local ICE candidate.
+  peerConnection.onicecandidate = (event) => {
     console.log("Reached the peerconnection icecandidate");
     console.log("The ice candidate is ", event.candidate);
     if (event.candidate) {
@@ -22,17 +23,17 @@ export function iceCandidate(
         })
       );
     }
-  });
+  };
 
-  //listen for connected stage.
-  peerConnection.addEventListener("connectionstatechange", (e) => {
-    console.log(e);
+  //listen for connection state change
+  peerConnection.onconnectionstatechange = (event) => {
+    console.log("The connection has been ESHTABILISHED");
+    console.log(event);
     console.log(peerConnection.signalingState);
-  });
+  };
 
-  //Remote stream
-  peerConnection.addEventListener("track", (event) => {
-    console.log("SETTING THE REMOTE STREAMS LHAHAAHAHAHAH");
+  //set remote stream
+  peerConnection.ontrack = (event) => {
     const remoteStream = event.streams[0];
     console.log("The remote stream is", remoteStream);
     const audioStream = new MediaStream(remoteStream.getAudioTracks());
@@ -47,5 +48,5 @@ export function iceCandidate(
 
     setPeerAudioTrack(audioStream);
     setPeerVideoTrack(videoStream);
-  });
+  };
 }

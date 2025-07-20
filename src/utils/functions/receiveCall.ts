@@ -5,14 +5,19 @@ export async function receiveCall(
   receiver: WebSocket,
   roomId: string,
   offer: RTCSessionDescriptionInit,
+  peerConnection: RTCPeerConnection,
   setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
   setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
   setPeerAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>
+  setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>
 ) {
-  const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-  const peerConnection = new RTCPeerConnection(config);
-  await getUserDevices(peerConnection, setSrcAudioTrack, setSrcVideoTrack);
+  await getUserDevices(
+    peerConnection,
+    setSrcAudioTrack,
+    setSrcVideoTrack,
+    setLocalStream
+  );
   iceCandidate(
     receiver,
     roomId,
@@ -32,5 +37,4 @@ export async function receiveCall(
       },
     })
   );
-  return peerConnection;
 }

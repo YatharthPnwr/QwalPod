@@ -6,7 +6,6 @@ export async function createSdpOffer(
   //create a new offer and set it in the local description.
   const localOffer = await peerConnection.createOffer();
   await peerConnection.setLocalDescription(localOffer);
-  console.log("The local desc is", peerConnection.localDescription);
 
   //send the offer to all the other people in the room
   if (!sender) {

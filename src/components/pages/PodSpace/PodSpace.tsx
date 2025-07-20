@@ -6,15 +6,18 @@ import { iceCandidate } from "@/utils/functions/iceCandidate";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import { useSearchParams } from "next/navigation";
 import getUserMedia from "@/utils/functions/getDevicesAndMedia";
+import Controls from "@/components/ui/Controls";
+import { updateMediaStream } from "@/utils/functions/getDevicesAndMedia";
 
 export default function PodSpacePage({ userRole }: { userRole: string }) {
   const webSocket = useRef<WebSocket>(null);
   const peerConnection = useRef<RTCPeerConnection>(null);
   const searchParams = useSearchParams();
+  const [pc, setPc] = useState<boolean>(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [srcAudioTrack, setSrcAudioTrack] = useState<MediaStream | undefined>(
     undefined
   );
-  console.log("The value of the srcAudioTrack is", srcAudioTrack);
   const [srcVideoTrack, setSrcVideoTrack] = useState<MediaStream | undefined>(
     undefined
   );
@@ -24,6 +27,10 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const [peerVideoTrack, setPeerVideoTrack] = useState<MediaStream | undefined>(
     undefined
   );
+  const [audioInputOptions, setAudioInputOptions] =
+    useState<MediaDeviceInfo[]>();
+
+  const [videoOptions, setVideoOptions] = useState<MediaDeviceInfo[]>();
 
   useEffect(() => {
     webSocket.current = new WebSocket("ws://localhost:3000/api/ws");
@@ -35,7 +42,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
     webSocket.current.onmessage = async (event) => {
       const res = JSON.parse(event.data.toString());
-      console.log(res);
       if (res.type === "error") {
         console.log(res.data);
       } else if (res.type === "success") {
@@ -48,6 +54,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         const roomId = res.data;
         //set the room id in the localstorage.
         localStorage.setItem("roomId", roomId);
+        console.log("The room id is", roomId);
         //join that particular room.
         if (!webSocket.current) {
           return;
@@ -74,33 +81,36 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           const config = {
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
           };
-          peerConnection.current = new RTCPeerConnection(config);
-          console.log("the new user media is getting");
+          const newPeerConnection = new RTCPeerConnection(config);
+          console.log("The new host RTC PEERCONNECTION is", newPeerConnection);
+          peerConnection.current = newPeerConnection;
+          setPc(true);
           await getUserMedia(
-            peerConnection.current,
+            newPeerConnection,
             setSrcAudioTrack,
-            setSrcVideoTrack
+            setSrcVideoTrack,
+            setLocalStream
           );
 
           const sdpOfferSendAndCreate = async () => {
-            if (!webSocket.current || !peerConnection.current) {
+            if (!webSocket.current || !newPeerConnection) {
               return;
             }
             const res = await createSdpOffer(
               webSocket.current,
               localStorage.getItem("roomId") as string,
-              peerConnection.current
+              newPeerConnection
             );
             return res;
           };
           const iceCandidateCreateAndSend = async () => {
-            if (!webSocket.current || !peerConnection.current) {
+            if (!webSocket.current || !newPeerConnection) {
               return;
             }
             iceCandidate(
               webSocket.current,
               localStorage.getItem("roomId") as string,
-              peerConnection.current,
+              newPeerConnection,
               setPeerAudioTrack,
               setPeerVideoTrack
             );
@@ -113,14 +123,22 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         if (!webSocket.current) {
           return;
         }
-        peerConnection.current = await receiveCall(
+        const config = {
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        };
+        const newPeerConnection = new RTCPeerConnection(config);
+        peerConnection.current = newPeerConnection;
+        setPc(true);
+        await receiveCall(
           webSocket.current,
           localStorage.getItem("roomId") as string,
           remoteSdpOffer,
+          newPeerConnection,
           setSrcAudioTrack,
           setSrcVideoTrack,
           setPeerAudioTrack,
-          setPeerVideoTrack
+          setPeerVideoTrack,
+          setLocalStream
         );
       } else if (res.type == "answer" && userRole === "caller") {
         const remoteDesc = new RTCSessionDescription(res.data);
@@ -169,48 +187,97 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         );
       });
     }
+    if (navigator.mediaDevices && peerConnection.current != null) {
+      navigator.mediaDevices.ondevicechange = async () => {
+        await updateMediaStream({
+          setVideoOptions,
+          setAudioInputOptions,
+          setSrcAudioTrack,
+          setSrcVideoTrack,
+        });
+        //Remove the current tracks
+        if (localStream && pc && peerConnection.current) {
+          localStream.getTracks().forEach((track) => {
+            const sender = peerConnection
+              .current!.getSenders()
+              .find((s) => s.track === track);
+            if (sender) {
+              peerConnection.current!.removeTrack(sender);
+            }
+          });
+        }
+        //add the new tracks
+        if (pc && peerConnection.current) {
+          await getUserMedia(
+            peerConnection.current,
+            setSrcAudioTrack,
+            setSrcVideoTrack,
+            setLocalStream
+          );
+        }
+      };
+    }
   }, []);
 
   return (
     <>
-      <div className="w-screen h-screen grid grid-cols-2 ">
-        <div className="caller bg-red-500 h-1/2 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
-          <video
-            autoPlay
-            playsInline
-            ref={(video) => {
-              if (video && srcVideoTrack) {
-                video.srcObject = srcVideoTrack;
-              }
-            }}
-          ></video>
-          <audio
-            autoPlay
-            ref={(audio) => {
-              if (audio && srcAudioTrack) {
-                audio.srcObject = srcAudioTrack;
-              }
-            }}
-          ></audio>
+      <div className="w-screen h-screen grid grid-rows-[75%_25%]">
+        <div className="w-screen grid grid-cols-2 ">
+          <div className="caller h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
+            <video
+              autoPlay
+              playsInline
+              ref={(video) => {
+                if (video && srcVideoTrack) {
+                  video.srcObject = srcVideoTrack;
+                }
+              }}
+            ></video>
+            {/* <audio
+              autoPlay
+              ref={(audio) => {
+                if (audio && srcAudioTrack) {
+                  audio.srcObject = srcAudioTrack;
+                }
+              }}
+            ></audio> */}
+          </div>
+          <div className="calee h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
+            <video
+              autoPlay
+              playsInline
+              ref={(video) => {
+                if (video && peerVideoTrack) {
+                  video.srcObject = peerVideoTrack;
+                }
+              }}
+            ></video>
+            <audio
+              autoPlay
+              ref={(audio) => {
+                if (audio && peerAudioTrack) {
+                  audio.srcObject = peerAudioTrack;
+                }
+              }}
+            ></audio>
+          </div>
         </div>
-        <div className="calee bg-amber-300 h-1/2 w-3/4 mx-auto my-auto rounded-2xl overflow-hidden">
-          <video
-            autoPlay
-            playsInline
-            ref={(video) => {
-              if (video && peerVideoTrack) {
-                video.srcObject = peerVideoTrack;
-              }
-            }}
-          ></video>
-          <audio
-            autoPlay
-            ref={(audio) => {
-              if (audio && peerAudioTrack) {
-                audio.srcObject = peerAudioTrack;
-              }
-            }}
-          ></audio>
+        <div className="w-screen">
+          {peerConnection && pc && peerConnection.current && (
+            <Controls
+              audioInputOptions={audioInputOptions}
+              setAudioInputOptions={setAudioInputOptions}
+              setVideoOptions={setVideoOptions}
+              videoOptions={videoOptions}
+              localStream={localStream}
+              setLocalStream={setLocalStream}
+              peerConnection={peerConnection.current}
+              srcVideoTrack={srcVideoTrack}
+              setSrcVideoTrack={setSrcVideoTrack}
+              srcAudioTrack={srcAudioTrack}
+              setSrcAudioTrack={setSrcAudioTrack}
+            />
+          )}
         </div>
       </div>
     </>
