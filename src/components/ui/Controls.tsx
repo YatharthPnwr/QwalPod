@@ -1,6 +1,15 @@
-import { Camera, Mic, Unplug, Ellipsis, MicOff, CameraOff } from "lucide-react";
+import {
+  Camera,
+  Mic,
+  Unplug,
+  Ellipsis,
+  MicOff,
+  CameraOff,
+  Link,
+} from "lucide-react";
 import { SetStateAction, Dispatch, useEffect, useState } from "react";
 import { switchMedia } from "@/utils/functions/getDevicesAndMedia";
+import { useMediaPredicate } from "react-media-hook";
 
 interface ControlsInput {
   audioInputOptions: MediaDeviceInfo[] | undefined;
@@ -22,6 +31,12 @@ export default function Controls(props: ControlsInput) {
     useState<boolean>(false);
   const [micOn, setMicOn] = useState<boolean>(true);
   const [videoOn, setVideoOn] = useState<boolean>(true);
+  const isXs = useMediaPredicate("(max-width: 639px)"); // <640px
+  const isSm = useMediaPredicate("(min-width: 640px)"); // ≥640px
+  const isMd = useMediaPredicate("(min-width: 768px)"); // ≥768px
+  const isLg = useMediaPredicate("(min-width: 1024px)"); // ≥1024px
+  const isXl = useMediaPredicate("(min-width: 1280px)");
+  const is2xl = useMediaPredicate("(min-width: 1536px)"); // ≥1536px
 
   //get the avaliable connected devices.
   async function getConnectedDevices(type: string) {
@@ -67,11 +82,24 @@ export default function Controls(props: ControlsInput) {
   return (
     <>
       <div className="w-full h-full flex items-center justify-center">
-        <div className="grid grid-cols-3 bg-gray-800 rounded-2xl w-1/3 h-2/5 items-center justify-items-center">
-          <div className="AudioInput rounded-2xl w-2/3 h-3/4 bg-amber-500 flex items-center justify-center">
-            <div className="grid grid-cols-2 gap-x-5">
+        <div className="grid grid-cols-4 gap-1.5 p-1 bg-gray-800 rounded-2xl w-11/12 h-2/5 sm:w-2/3 md:w-3/5 lg:w-5/12 xl:8/12 items-center justify-items-center">
+          <div className="AudioInput rounded-2xl w-full md:w-2/3 lg:w-10/12 h-3/4 bg-amber-500 flex items-center justify-center">
+            <div className="grid sm:grid-cols-2 sm: gap-x-5 items-center">
               <Ellipsis
-                size={20}
+                className="hidden sm:block"
+                size={
+                  is2xl
+                    ? 40
+                    : isXl
+                    ? 35
+                    : isLg
+                    ? 35
+                    : isMd
+                    ? 35
+                    : isSm
+                    ? 25
+                    : 20
+                }
                 onClick={() => {
                   setAudioSelectionModal(!audioSelectionModal);
                   setVideoSelectionModal(false);
@@ -79,6 +107,19 @@ export default function Controls(props: ControlsInput) {
               />
               {micOn ? (
                 <Mic
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
                   onClick={() => {
                     const sender = props.peerConnection
                       .getSenders()
@@ -92,6 +133,19 @@ export default function Controls(props: ControlsInput) {
                 />
               ) : (
                 <MicOff
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
                   onClick={() => {
                     const sender = props.peerConnection
                       .getSenders()
@@ -133,10 +187,23 @@ export default function Controls(props: ControlsInput) {
               </div>
             )}
           </div>
-          <div className="VideoInput rounded-2xl w-2/3 h-3/4 flex items-center justify-center bg-amber-500">
-            <div className="grid grid-cols-2 gap-x-5">
+          <div className="VideoInput rounded-2xl w-full md:w-2/3 lg:w-10/12 h-3/4 flex items-center justify-center bg-amber-500">
+            <div className="grid sm:grid-cols-2 sm: gap-x-5 items-center">
               <Ellipsis
-                size={20}
+                className="hidden sm:block"
+                size={
+                  is2xl
+                    ? 40
+                    : isXl
+                    ? 35
+                    : isLg
+                    ? 35
+                    : isMd
+                    ? 35
+                    : isSm
+                    ? 25
+                    : 20
+                }
                 onClick={() => {
                   setVideoSelectionModal(!videoSelectionModal);
                   setAudioSelectionModal(false);
@@ -144,6 +211,19 @@ export default function Controls(props: ControlsInput) {
               />
               {videoOn ? (
                 <Camera
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
                   onClick={() => {
                     const videoTracks = props.localStream
                       ?.getTracks()
@@ -156,6 +236,19 @@ export default function Controls(props: ControlsInput) {
                 />
               ) : (
                 <CameraOff
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
                   onClick={() => {
                     const videoTracks = props.localStream
                       ?.getTracks()
@@ -196,8 +289,19 @@ export default function Controls(props: ControlsInput) {
               </div>
             )}
           </div>
-          <div className="LeavePod rounded-2xl w-2/3 h-3/4 flex items-center justify-center bg-red-500">
-            <Unplug />
+          <div className="copyPodLink rounded-2xl w-full md:w-2/3 h-3/4 flex items-center justify-center bg-green-500">
+            <Link
+              size={
+                is2xl ? 35 : isXl ? 30 : isLg ? 30 : isMd ? 25 : isSm ? 25 : 20
+              }
+            />
+          </div>
+          <div className="LeavePod rounded-2xl w-full h-3/4 md:w-2/3 flex items-center justify-center bg-red-500">
+            <Unplug
+              size={
+                is2xl ? 35 : isXl ? 30 : isLg ? 30 : isMd ? 25 : isSm ? 25 : 20
+              }
+            />
           </div>
         </div>
       </div>
