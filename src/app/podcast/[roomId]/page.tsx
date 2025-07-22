@@ -1,23 +1,20 @@
 "use client";
 import PodSpacePage from "@/components/pages/PodSpace/PodSpace";
-// In a parent component
-{
-  /* <PodSpace userRole="caller" />
-// or
-<PodSpace userRole="calee" /> */
-}
+
 import { useParams } from "next/navigation";
+import { useApplicationContext } from "@/lib/context/ApplicationContext";
+
 export default function PodSpace() {
   const params = useParams<{ userRole: string }>();
-  const userRole = params;
-  if (!userRole) {
+  const roomId = params;
+  const userRole = useApplicationContext();
+  if (!roomId) {
     return (
       <>
-        <div>No userRole Found returning</div>
+        <div>No roomId Found, returning</div>
       </>
     );
   }
-  console.log(userRole.userRole);
   if (userRole.userRole == "caller") {
     return PodSpacePage({ userRole: "caller" });
   } else {

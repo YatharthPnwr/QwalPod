@@ -4,15 +4,17 @@ import { receiveCall } from "@/utils/functions/receiveCall";
 import { createSdpOffer } from "@/utils/functions/sdpOffer";
 import { iceCandidate } from "@/utils/functions/iceCandidate";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
-import { useSearchParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import getUserMedia from "@/utils/functions/getDevicesAndMedia";
 import Controls from "@/components/ui/Controls";
+import { useApplicationContext } from "@/lib/context/ApplicationContext";
 
 export default function PodSpacePage({ userRole }: { userRole: string }) {
-  const webSocket = useRef<WebSocket>(null);
+  const { ws, setUserRole } = useApplicationContext();
   const peerConnection = useRef<RTCPeerConnection>(null);
-  const searchParams = useSearchParams();
   const [pc, setPc] = useState<boolean>(false);
+  const params = useParams();
+
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [srcAudioTrack, setSrcAudioTrack] = useState<MediaStream | undefined>(
     undefined
@@ -32,49 +34,24 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const [videoOptions, setVideoOptions] = useState<MediaDeviceInfo[]>();
 
   useEffect(() => {
-    webSocket.current = new WebSocket("ws://localhost:3000/api/ws");
-    if (!webSocket.current) {
-      console.log("No websocket found returning");
-      return;
+    if (!ws.current) {
+      //Someone joined from the link
+      ws.current = new WebSocket("ws://localhost:3000/api/ws");
     }
-    const wsConnMan = new WebSocketConnHandle(webSocket.current, 1800);
+    const wsConnMan = new WebSocketConnHandle(ws.current, 1800);
 
-    webSocket.current.onmessage = async (event) => {
+    ws.current.onmessage = async (event) => {
       const res = JSON.parse(event.data.toString());
       if (res.type === "error") {
         console.log(res.data);
       } else if (res.type === "success") {
         console.log(res.data);
-      } else if (res.type == "clientIdGenerated") {
-        const clientId = res.data;
-        //set the client id in the localstorage.
-        localStorage.setItem("userId", clientId);
-      } else if (res.type === "roomCreated") {
-        const roomId = res.data;
-        //set the room id in the localstorage.
-        localStorage.setItem("roomId", roomId);
-        console.log("The room id is", roomId);
-        //join that particular room.
-        if (!webSocket.current) {
-          return;
-        }
-        wsConnMan.waitForConnection(() => {
-          webSocket.current?.send(
-            JSON.stringify({
-              event: "hostJoin",
-              data: {
-                roomId: localStorage.getItem("roomId"),
-                userId: localStorage.getItem("userId"),
-              },
-            })
-          );
-        });
       } else if (res.type === "hostJoined") {
         console.log(res.data);
       } else if (res.type === "participantJoined") {
         console.log(res.data);
         //Do all the logic of sending the data to the other participant,
-
+        //WAIT FOR ALL THE PARTICIPANTS TO JOIN THE ROOM BEFORE SENDING THE DATA.
         if (userRole === "caller") {
           console.log("initiating the sending data to other participant");
           const config = {
@@ -93,22 +70,22 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           setPc(true);
 
           const sdpOfferSendAndCreate = async () => {
-            if (!webSocket.current || !newPeerConnection) {
+            if (!ws.current || !newPeerConnection) {
               return;
             }
             const res = await createSdpOffer(
-              webSocket.current,
+              ws.current,
               localStorage.getItem("roomId") as string,
               newPeerConnection
             );
             return res;
           };
           const iceCandidateCreateAndSend = async () => {
-            if (!webSocket.current || !newPeerConnection) {
+            if (!ws.current || !newPeerConnection) {
               return;
             }
             iceCandidate(
-              webSocket.current,
+              ws.current,
               localStorage.getItem("roomId") as string,
               newPeerConnection,
               setPeerAudioTrack,
@@ -126,7 +103,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         }
       } else if (res.type === "offer" && userRole === "calee") {
         const remoteSdpOffer = res.data;
-        if (!webSocket.current) {
+        if (!ws.current) {
           return;
         }
         const config = {
@@ -136,7 +113,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         peerConnection.current = newPeerConnection;
 
         await receiveCall(
-          webSocket.current,
+          ws.current,
           localStorage.getItem("roomId") as string,
           remoteSdpOffer,
           newPeerConnection,
@@ -170,23 +147,40 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         }
       }
     };
-
-    if (userRole === "caller") {
-      //create  a new room,
+    if (!userRole) {
+      console.log("REACHED HERE");
+      setUserRole("calee");
+      const { roomId } = params;
       wsConnMan.waitForConnection(() => {
-        if (!webSocket.current) {
-          return;
-        }
-        webSocket.current.send(
+        ws.current?.send(
           JSON.stringify({
-            event: "createNewRoom",
+            event: "joinRoom",
+            data: {
+              roomId: roomId,
+              userId: localStorage.getItem("userId"),
+            },
+          })
+        );
+      });
+    }
+    if (userRole === "caller") {
+      //Join the room as a host.
+      wsConnMan.waitForConnection(() => {
+        ws.current?.send(
+          JSON.stringify({
+            event: "hostJoin",
+            data: {
+              roomId: localStorage.getItem("roomId"),
+              userId: localStorage.getItem("userId"),
+            },
           })
         );
       });
     } else if (userRole == "calee") {
-      const roomId = searchParams.get("roomId");
+      //join the room as a participant
+      const { roomId } = params;
       wsConnMan.waitForConnection(() => {
-        webSocket.current?.send(
+        ws.current?.send(
           JSON.stringify({
             event: "joinRoom",
             data: {
