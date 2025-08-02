@@ -68,7 +68,12 @@ nextApp.prepare().then(() => {
       //A handler that sends the sdp offer to all the clients in the podSpace.
       if (event == "sendSdpOffer") {
         const res = JSON.stringify(
-          await podMan.sendSdpOffer(data.roomId, data.offer, ws)
+          await podMan.sendSdpOffer(
+            data.roomId,
+            data.offer,
+            new Map(Object.entries(data.streamMetaData)),
+            ws
+          )
         );
         ws.send(res);
       }
@@ -76,7 +81,12 @@ nextApp.prepare().then(() => {
       //A handler that sends the answer of an sdp offer to all the clients in the podSpace.
       if (event == "sendAnswer") {
         const res = JSON.stringify(
-          await podMan.answer(data.roomId, data.answer, ws)
+          await podMan.answer(
+            data.roomId,
+            data.answer,
+            new Map(Object.entries(data.streamMetaData)),
+            ws
+          )
         );
         ws.send(res);
       }

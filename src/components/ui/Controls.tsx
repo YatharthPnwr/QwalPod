@@ -5,10 +5,14 @@ import {
   Ellipsis,
   MicOff,
   CameraOff,
-  Link,
+  ScreenShareIcon,
 } from "lucide-react";
 import { SetStateAction, Dispatch, useEffect, useState } from "react";
-import { switchMedia } from "@/utils/functions/getDevicesAndMedia";
+
+import {
+  startScreenShare,
+  switchMedia,
+} from "@/utils/functions/getDevicesAndMedia";
 import { useMediaPredicate } from "react-media-hook";
 
 interface ControlsInput {
@@ -16,13 +20,12 @@ interface ControlsInput {
   setAudioInputOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>;
   videoOptions: MediaDeviceInfo[] | undefined;
   setVideoOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>;
-  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>;
-  localStream: MediaStream | null;
-  srcVideoTrack: MediaStream | undefined;
-  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>;
-  srcAudioTrack: MediaStream | undefined;
-  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>;
+  srcVideoStream: MediaStream | undefined;
+  setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
+  srcAudioStream: MediaStream | undefined;
+  setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   peerConnection: RTCPeerConnection;
+  deviceTypeToID: React.RefObject<Map<string, string>>;
 }
 export default function Controls(props: ControlsInput) {
   const [audioSelectionModal, setAudioSelectionModal] =
@@ -170,12 +173,10 @@ export default function Controls(props: ControlsInput) {
                         await switchMedia({
                           kind: "audioinput",
                           deviceId: audioOption.deviceId,
-                          setLocalStream: props.setLocalStream,
-                          localStream: props.localStream,
-                          srcVideoStream: props.srcVideoTrack,
-                          setSrcVideoStream: props.setSrcVideoTrack,
-                          srcAudioStream: props.srcAudioTrack,
-                          setSrcAudioStream: props.setSrcAudioTrack,
+                          srcVideoStream: props.srcVideoStream,
+                          setSrcVideoStream: props.setSrcVideoStream,
+                          srcAudioStream: props.srcAudioStream,
+                          setSrcAudioStream: props.setSrcAudioStream,
                           peerConnection: props.peerConnection,
                         });
                       }}
@@ -225,7 +226,7 @@ export default function Controls(props: ControlsInput) {
                       : 20
                   }
                   onClick={() => {
-                    const videoTracks = props.localStream
+                    const videoTracks = props.srcVideoStream
                       ?.getTracks()
                       .find((track) => track.kind === "video");
                     if (videoTracks?.enabled) {
@@ -250,7 +251,7 @@ export default function Controls(props: ControlsInput) {
                       : 20
                   }
                   onClick={() => {
-                    const videoTracks = props.localStream
+                    const videoTracks = props.srcVideoStream
                       ?.getTracks()
                       .find((track) => track.kind === "video");
                     if (videoTracks?.enabled == false) {
@@ -272,12 +273,10 @@ export default function Controls(props: ControlsInput) {
                         await switchMedia({
                           kind: "videoinput",
                           deviceId: videoOption.deviceId,
-                          setLocalStream: props.setLocalStream,
-                          localStream: props.localStream,
-                          srcVideoStream: props.srcVideoTrack,
-                          setSrcVideoStream: props.setSrcVideoTrack,
-                          srcAudioStream: props.srcAudioTrack,
-                          setSrcAudioStream: props.setSrcAudioTrack,
+                          srcVideoStream: props.srcVideoStream,
+                          setSrcVideoStream: props.setSrcVideoStream,
+                          srcAudioStream: props.srcAudioStream,
+                          setSrcAudioStream: props.setSrcAudioStream,
                           peerConnection: props.peerConnection,
                         });
                       }}
@@ -289,8 +288,16 @@ export default function Controls(props: ControlsInput) {
               </div>
             )}
           </div>
-          <div className="copyPodLink rounded-2xl w-full md:w-2/3 h-3/4 flex items-center justify-center bg-green-500">
-            <Link
+          <div
+            className="shareScreenPod rounded-2xl w-full md:w-2/3 h-3/4 flex items-center justify-center bg-green-500"
+            onClick={async () => {
+              await startScreenShare(
+                props.peerConnection,
+                props.deviceTypeToID
+              );
+            }}
+          >
+            <ScreenShareIcon
               size={
                 is2xl ? 35 : isXl ? 30 : isLg ? 30 : isMd ? 25 : isSm ? 25 : 20
               }

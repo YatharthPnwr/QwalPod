@@ -23,7 +23,6 @@ export default function DashBoard() {
         //set the room id in the localstorage.
         localStorage.setItem("roomId", roomId);
         setUserRole("caller");
-        console.log("The redirecting to the podspace with room Id", roomId);
         router.push(`/podcast/${roomId}`);
       } else if (res.type == "clientIdGenerated") {
         const clientId = res.data;

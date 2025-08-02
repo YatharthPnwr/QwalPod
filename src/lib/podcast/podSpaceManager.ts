@@ -81,6 +81,7 @@ export class podSpaceManager {
   public async sendSdpOffer(
     roomId: string,
     offer: RTCSessionDescriptionInit,
+    streamMetaData: Map<string, string>,
     ws: WSWebSocket
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
@@ -101,6 +102,7 @@ export class podSpaceManager {
           JSON.stringify({
             type: "offer",
             data: offer,
+            streamMetaData: Object.fromEntries(streamMetaData),
           })
         );
       }
@@ -115,6 +117,7 @@ export class podSpaceManager {
   public async answer(
     roomId: string,
     answer: string,
+    streamMetaData: Map<string, string>,
     ws: WSWebSocket
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
@@ -132,6 +135,7 @@ export class podSpaceManager {
           JSON.stringify({
             type: "answer",
             data: answer,
+            streamMetaData: Object.fromEntries(streamMetaData),
           })
         );
       }

@@ -1,8 +1,33 @@
 import { Dispatch, SetStateAction } from "react";
 export async function getDisplayMedia() {
   try {
-    const DisplayMedia = await navigator.mediaDevices.getDisplayMedia();
+    const DisplayMedia = await navigator.mediaDevices.getDisplayMedia({
+      audio: true,
+      video: true,
+    });
     return DisplayMedia;
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+export async function startScreenShare(
+  pc: RTCPeerConnection,
+  deviceTypeToID: React.RefObject<Map<string, string>>
+) {
+  try {
+    const displayMedia = await navigator.mediaDevices.getDisplayMedia({
+      audio: true,
+      video: true,
+    });
+    deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
+    console.log(
+      "Added screen share to map Final state is: ",
+      Object.fromEntries(deviceTypeToID.current)
+    );
+    displayMedia.getTracks().forEach((track) => {
+      pc.addTrack(track, displayMedia);
+    });
   } catch (e) {
     console.log(e);
   }
@@ -10,23 +35,31 @@ export async function getDisplayMedia() {
 
 export default async function getUserDevices(
   peerConnection: RTCPeerConnection,
-  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>
+  setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  deviceTypeToID: React.RefObject<Map<string, string>>
 ) {
   try {
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
+    const audioStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
+      video: false,
+    });
+    const videoStream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
       video: true,
     });
-    setLocalStream(mediaStream);
-    mediaStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, mediaStream);
+    //Add the device id along with kind in the MAP.
+    deviceTypeToID.current.clear();
+    deviceTypeToID.current.set(audioStream.id, "peerAudio");
+    deviceTypeToID.current.set(videoStream.id, "peerVideo");
+    audioStream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, audioStream);
     });
-    const audioTrack = new MediaStream(mediaStream.getAudioTracks());
-    setSrcAudioTrack(audioTrack);
-    const videoTrack = new MediaStream(mediaStream.getVideoTracks());
-    setSrcVideoTrack(videoTrack);
+    setSrcAudioStream(audioStream);
+    videoStream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, videoStream);
+    });
+    setSrcVideoStream(videoStream);
   } catch (e) {
     console.log(e);
     return null;
@@ -36,11 +69,8 @@ export default async function getUserDevices(
 interface updateMediaInputs {
   setVideoOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>;
   setAudioInputOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>;
-  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>;
-  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>;
 }
 export async function updateMediaStream(props: updateMediaInputs) {
-  console.log("This was triggered");
   const updatedMediaStream = await navigator.mediaDevices.enumerateDevices();
   const audioOptions = updatedMediaStream.filter(
     (device) => device.kind === "audioinput"
@@ -55,8 +85,6 @@ export async function updateMediaStream(props: updateMediaInputs) {
 interface switchMediaInputs {
   kind: "audioinput" | "videoinput" | "audiooutput";
   deviceId: string;
-  localStream: MediaStream | null;
-  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>;
   peerConnection: RTCPeerConnection;
   srcVideoStream: MediaStream | undefined;
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
@@ -73,25 +101,21 @@ export async function switchMedia(props: switchMediaInputs) {
     }
     const newConstraints = {
       audio: { deviceId: { exact: props.deviceId } },
-      video: currentVideoDeviceId
-        ? { deviceId: { exact: currentVideoDeviceId } }
-        : true,
     };
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia(
+      const newAudioStream = await navigator.mediaDevices.getUserMedia(
         newConstraints
       );
       //stop the current stream
-      props.localStream?.getTracks().forEach((track) => {
+      props.srcAudioStream?.getTracks().forEach((track) => {
         if (track.kind === "audioinput") {
           track.stop();
         }
       });
-      props.setLocalStream(newStream);
-      props.setSrcAudioStream(newStream);
+      props.setSrcAudioStream(newAudioStream);
       props.peerConnection.getSenders().forEach((sender) => {
         if (sender.track?.kind === "audio") {
-          sender.replaceTrack(newStream.getAudioTracks()[0]);
+          sender.replaceTrack(newAudioStream.getAudioTracks()[0]);
         }
       });
     } catch (e) {
@@ -105,28 +129,24 @@ export async function switchMedia(props: switchMediaInputs) {
       return;
     }
 
-    const newConstraints = {
+    const newVideoConstraints = {
       video: { deviceId: { exact: props.deviceId } },
-      audio: currentAudioDeviceId
-        ? { deviceId: { exact: currentAudioDeviceId } }
-        : true,
     };
 
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia(
-        newConstraints
+      const newVideoStream = await navigator.mediaDevices.getUserMedia(
+        newVideoConstraints
       );
       //stop the current stream
-      props.localStream?.getTracks().forEach((track) => {
+      props.srcVideoStream?.getTracks().forEach((track) => {
         if (track.kind === "videoinput") {
           track.stop();
         }
       });
-      props.setLocalStream(newStream);
-      props.setSrcVideoStream(newStream);
+      props.setSrcVideoStream(newVideoStream);
       props.peerConnection.getSenders().forEach((sender) => {
         if (sender.track?.kind === "video") {
-          sender.replaceTrack(newStream.getVideoTracks()[0]);
+          sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
         }
       });
     } catch (e) {

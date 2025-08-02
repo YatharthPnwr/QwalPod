@@ -1,28 +1,34 @@
 export async function createSdpOffer(
   sender: WebSocket,
   roomId: string,
-  peerConnection: RTCPeerConnection
+  peerConnection: RTCPeerConnection,
+  streamMetadata: Map<string, string>
 ) {
-  //create a new offer and set it in the local description.
-  const localOffer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(localOffer);
+  try {
+    // Create offer with options to preserve existing tracks
+    const localOffer = await peerConnection.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: true,
+    });
 
-  //send the offer to all the other people in the room
-  if (!sender) {
-    return;
-  }
+    await peerConnection.setLocalDescription(localOffer);
 
-  const res = () => {
-    console.log("Sending the message");
-    sender.send(
+    if (!sender) {
+      console.log("No sender found returning");
+      return;
+    }
+    const res = sender.send(
       JSON.stringify({
         event: "sendSdpOffer",
         data: {
           roomId: roomId,
           offer: localOffer,
+          streamMetaData: Object.fromEntries(streamMetadata),
         },
       })
     );
-  };
-  res();
+    return res;
+  } catch (error) {
+    return error;
+  }
 }

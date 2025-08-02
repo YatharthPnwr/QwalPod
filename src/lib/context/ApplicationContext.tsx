@@ -25,7 +25,13 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
   const ws = useRef<WebSocket | null>(null);
 
   return (
-    <applicationContext.Provider value={{ userRole, setUserRole, ws }}>
+    <applicationContext.Provider
+      value={{
+        userRole,
+        setUserRole,
+        ws,
+      }}
+    >
       {children}
     </applicationContext.Provider>
   );

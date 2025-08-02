@@ -14,20 +14,28 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const peerConnection = useRef<RTCPeerConnection>(null);
   const [pc, setPc] = useState<boolean>(false);
   const params = useParams();
+  const deviceTypeToID = useRef<Map<string, string>>(new Map());
+  const remoteDeviceTypeToId = useRef<Map<string, string>>(new Map());
+  const [srcAudioStream, setSrcAudioStream] = useState<MediaStream | undefined>(
+    undefined
+  );
+  const [srcVideoStream, setSrcVideoStream] = useState<MediaStream | undefined>(
+    undefined
+  );
+  const [peerAudioStream, setPeerAudioStream] = useState<
+    MediaStream | undefined
+  >(undefined);
+  const [peerVideoStream, setPeerVideoStream] = useState<
+    MediaStream | undefined
+  >(undefined);
+  const [peerScreenShareAudioStream, setPeerScreenShareAudioStream] = useState<
+    MediaStream | undefined
+  >(undefined);
+  const [peerScreenShareVideoStream, setPeerScreenShareVideoStream] = useState<
+    MediaStream | undefined
+  >(undefined);
+  const hasInitialNegotiationCompleted = useRef<boolean>(false);
 
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [srcAudioTrack, setSrcAudioTrack] = useState<MediaStream | undefined>(
-    undefined
-  );
-  const [srcVideoTrack, setSrcVideoTrack] = useState<MediaStream | undefined>(
-    undefined
-  );
-  const [peerAudioTrack, setPeerAudioTrack] = useState<MediaStream | undefined>(
-    undefined
-  );
-  const [peerVideoTrack, setPeerVideoTrack] = useState<MediaStream | undefined>(
-    undefined
-  );
   const [audioInputOptions, setAudioInputOptions] =
     useState<MediaDeviceInfo[]>();
 
@@ -43,29 +51,26 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
     ws.current.onmessage = async (event) => {
       const res = JSON.parse(event.data.toString());
       if (res.type === "error") {
-        console.log(res.data);
+        // console.log(res.data);
       } else if (res.type === "success") {
-        console.log(res.data);
+        // console.log(res.data);
       } else if (res.type === "hostJoined") {
-        console.log(res.data);
+        // console.log(res.data);
       } else if (res.type === "participantJoined") {
-        console.log(res.data);
         //Do all the logic of sending the data to the other participant,
         //WAIT FOR ALL THE PARTICIPANTS TO JOIN THE ROOM BEFORE SENDING THE DATA.
         if (userRole === "caller") {
-          console.log("initiating the sending data to other participant");
           const config = {
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
           };
           const newPeerConnection = new RTCPeerConnection(config);
-          console.log("The new host RTC PEERCONNECTION is", newPeerConnection);
           peerConnection.current = newPeerConnection;
 
           await getUserMedia(
             newPeerConnection,
-            setSrcAudioTrack,
-            setSrcVideoTrack,
-            setLocalStream
+            setSrcAudioStream,
+            setSrcVideoStream,
+            deviceTypeToID
           );
           setPc(true);
 
@@ -76,7 +81,8 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
             const res = await createSdpOffer(
               ws.current,
               localStorage.getItem("roomId") as string,
-              newPeerConnection
+              newPeerConnection,
+              deviceTypeToID.current
             );
             return res;
           };
@@ -88,51 +94,135 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
               ws.current,
               localStorage.getItem("roomId") as string,
               newPeerConnection,
-              setPeerAudioTrack,
-              setPeerVideoTrack,
+              setPeerAudioStream,
+              setPeerVideoStream,
               setVideoOptions,
               setAudioInputOptions,
-              setSrcAudioTrack,
-              setSrcVideoTrack,
-              localStream,
-              setLocalStream
+              setSrcAudioStream,
+              setSrcVideoStream,
+              peerVideoStream,
+              peerAudioStream,
+              peerScreenShareVideoStream,
+              setPeerScreenShareVideoStream,
+              peerScreenShareAudioStream,
+              setPeerScreenShareAudioStream,
+              hasInitialNegotiationCompleted,
+              srcAudioStream,
+              srcVideoStream,
+              deviceTypeToID
             );
           };
           sdpOfferSendAndCreate();
           iceCandidateCreateAndSend();
         }
-      } else if (res.type === "offer" && userRole === "calee") {
+      } else if (res.type === "offer") {
         const remoteSdpOffer = res.data;
+        // deviceTypeToID = new Map(Object.entries(res.data.streamMetaData));
+        remoteDeviceTypeToId.current = new Map(
+          Object.entries(res.streamMetaData as [string, string])
+        );
         if (!ws.current) {
           return;
         }
-        const config = {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        };
-        const newPeerConnection = new RTCPeerConnection(config);
-        peerConnection.current = newPeerConnection;
 
-        await receiveCall(
-          ws.current,
-          localStorage.getItem("roomId") as string,
-          remoteSdpOffer,
-          newPeerConnection,
-          setSrcAudioTrack,
-          setSrcVideoTrack,
-          setPeerAudioTrack,
-          setPeerVideoTrack,
-          setLocalStream,
-          setVideoOptions,
-          setAudioInputOptions,
-          localStream
+        // Check if this is a renegotiation (existing connection) or new connection
+        if (hasInitialNegotiationCompleted.current) {
+          // This is a renegotiation (e.g., screen share)
+          console.log("HANDLING RENEGOTIATION OFFEERRRRRR!!!!!!");
+          if (!peerConnection.current) {
+            console.log("NO PEER CONNECTION FOUND RETURNING");
+            return;
+          }
+
+          try {
+            // Set the remote description on the existing connection
+            await peerConnection.current.setRemoteDescription(
+              new RTCSessionDescription(remoteSdpOffer)
+            );
+
+            // Create and send answer
+            const answer = await peerConnection.current.createAnswer();
+            await peerConnection.current.setLocalDescription(answer);
+
+            ws.current.send(
+              JSON.stringify({
+                event: "sendAnswer",
+                data: {
+                  roomId: localStorage.getItem("roomId"),
+                  answer: answer,
+                  streamMetaData: Object.fromEntries(deviceTypeToID.current),
+                },
+              })
+            );
+          } catch (error) {
+            console.error("Error handling renegotiation:", error);
+          }
+        } else {
+          // This is the initial connection setup
+          console.log("Handling initial connection offer");
+          const config = {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          };
+          const newPeerConnection = new RTCPeerConnection(config);
+          peerConnection.current = newPeerConnection;
+
+          await receiveCall(
+            ws.current,
+            localStorage.getItem("roomId") as string,
+            remoteSdpOffer,
+            newPeerConnection,
+            setSrcAudioStream,
+            setSrcVideoStream,
+            setPeerAudioStream,
+            setPeerVideoStream,
+            setVideoOptions,
+            setAudioInputOptions,
+            peerVideoStream,
+            peerAudioStream,
+            peerScreenShareVideoStream,
+            setPeerScreenShareVideoStream,
+            peerScreenShareAudioStream,
+            setPeerScreenShareAudioStream,
+            hasInitialNegotiationCompleted,
+            srcAudioStream,
+            srcVideoStream,
+            deviceTypeToID,
+            remoteDeviceTypeToId
+          );
+          setPc(true);
+        }
+      } else if (res.type == "answer") {
+        if (!peerConnection.current) {
+          console.log("no peer connection found on the caller side.");
+          return;
+        }
+        remoteDeviceTypeToId.current = new Map(
+          Object.entries(res.streamMetaData as [string, string])
         );
-        setPc(true);
-      } else if (res.type == "answer" && userRole === "caller") {
+        // Remove existing ontrack listener to avoid duplicates
+        peerConnection.current.ontrack = null;
+        peerConnection.current.ontrack = (event) => {
+          const remoteStream = event.streams[0];
+          const remoteStreamId = remoteStream.id;
+          const remoteDeviceType =
+            remoteDeviceTypeToId.current.get(remoteStreamId);
+
+          if (remoteDeviceType === "peerAudio") {
+            setPeerAudioStream(remoteStream);
+          } else if (remoteDeviceType === "peerVideo") {
+            setPeerVideoStream(remoteStream);
+          } else if (remoteDeviceType === "peerScreenShare") {
+            setPeerScreenShareVideoStream(remoteStream);
+            setPeerScreenShareAudioStream(remoteStream);
+          }
+        };
         const remoteDesc = new RTCSessionDescription(res.data);
+
         if (!peerConnection.current) {
           return;
         }
         await peerConnection.current.setRemoteDescription(remoteDesc);
+        hasInitialNegotiationCompleted.current = true;
       } else if (res.type == "iceCandidate") {
         const remoteIceCandidate = res.data;
         if (!peerConnection.current) {
@@ -147,8 +237,8 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         }
       }
     };
+
     if (!userRole) {
-      console.log("REACHED HERE");
       setUserRole("calee");
       const { roomId } = params;
       wsConnMan.waitForConnection(() => {
@@ -191,30 +281,32 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
         );
       });
     }
+    return () => {
+      if (!peerConnection.current) {
+        return;
+      }
+      peerConnection.current.onicecandidate = null;
+      peerConnection.current.onconnectionstatechange = null;
+      peerConnection.current.onnegotiationneeded = null;
+      peerConnection.current.ontrack = null;
+      navigator.mediaDevices.ondevicechange = null;
+    };
   }, []);
   return (
     <>
       <div className="w-screen h-screen grid grid-rows-[75%_25%]">
-        <div className="w-screen grid grid-cols-2 ">
+        <div className="w-screen grid grid-cols-3 ">
           <div className="caller h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
             <video
               autoPlay
               playsInline
               muted
               ref={(video) => {
-                if (video && srcVideoTrack) {
-                  video.srcObject = srcVideoTrack;
+                if (video && srcVideoStream) {
+                  video.srcObject = srcVideoStream;
                 }
               }}
             ></video>
-            {/* <audio
-              autoPlay
-              ref={(audio) => {
-                if (audio && srcAudioTrack) {
-                  audio.srcObject = srcAudioTrack;
-                }
-              }}
-            ></audio> */}
           </div>
           <div className="calee h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
             <video
@@ -222,19 +314,31 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
               playsInline
               muted
               ref={(video) => {
-                if (video && peerVideoTrack) {
-                  video.srcObject = peerVideoTrack;
+                if (video && peerVideoStream) {
+                  video.srcObject = peerVideoStream;
                 }
               }}
             ></video>
             <audio
               autoPlay
               ref={(audio) => {
-                if (audio && peerAudioTrack) {
-                  audio.srcObject = peerAudioTrack;
+                if (audio && peerAudioStream) {
+                  audio.srcObject = peerAudioStream;
                 }
               }}
             ></audio>
+          </div>
+          <div className="calee h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
+            <video
+              autoPlay
+              playsInline
+              muted
+              ref={(video) => {
+                if (video && peerScreenShareVideoStream) {
+                  video.srcObject = peerScreenShareVideoStream;
+                }
+              }}
+            ></video>
           </div>
         </div>
         <div className="w-screen">
@@ -244,13 +348,12 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
               setAudioInputOptions={setAudioInputOptions}
               setVideoOptions={setVideoOptions}
               videoOptions={videoOptions}
-              localStream={localStream}
-              setLocalStream={setLocalStream}
               peerConnection={peerConnection.current}
-              srcVideoTrack={srcVideoTrack}
-              setSrcVideoTrack={setSrcVideoTrack}
-              srcAudioTrack={srcAudioTrack}
-              setSrcAudioTrack={setSrcAudioTrack}
+              srcVideoStream={srcVideoStream}
+              setSrcVideoStream={setSrcVideoStream}
+              srcAudioStream={srcAudioStream}
+              setSrcAudioStream={setSrcAudioStream}
+              deviceTypeToID={deviceTypeToID}
             />
           )}
         </div>

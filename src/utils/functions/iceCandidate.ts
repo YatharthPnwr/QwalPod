@@ -1,24 +1,35 @@
-import { Dispatch, SetStateAction } from "react";
+import React, { Dispatch, SetStateAction } from "react";
 import { updateMediaStream } from "./getDevicesAndMedia";
 import getUserMedia from "@/utils/functions/getDevicesAndMedia";
+import { createSdpOffer } from "@/utils/functions/sdpOffer";
 
 export function iceCandidate(
   sender: WebSocket,
   roomId: string,
   peerConnection: RTCPeerConnection,
-  setPeerAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setPeerVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setPeerAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setPeerVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>,
   setVideoOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
   setAudioInputOptions: Dispatch<SetStateAction<MediaDeviceInfo[] | undefined>>,
-  setSrcAudioTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setSrcVideoTrack: Dispatch<SetStateAction<MediaStream | undefined>>,
-  localStream: MediaStream | null,
-  setLocalStream: Dispatch<SetStateAction<MediaStream | null>>
+  setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  peerVideoStream: MediaStream | undefined,
+  peerAudioStream: MediaStream | undefined,
+  peerScreenShareVideoStream: MediaStream | undefined,
+  setPeerScreenShareVideoStream: Dispatch<
+    SetStateAction<MediaStream | undefined>
+  >,
+  peerScreenShareAudioStream: MediaStream | undefined,
+  setPeerScreenShareAudioStream: Dispatch<
+    SetStateAction<MediaStream | undefined>
+  >,
+  hasInitialNegotiationCompleted: React.RefObject<boolean>,
+  srcAudioStream: MediaStream | undefined,
+  srcVideoStream: MediaStream | undefined,
+  deviceTypeToID: React.RefObject<Map<string, string>>
 ) {
   //listen for local ICE candidate.
   peerConnection.onicecandidate = (event) => {
-    console.log("Reached the peerconnection icecandidate");
-    console.log("The ice candidate is ", event.candidate);
     if (event.candidate) {
       //Send the local ICE candidate to all the peers in the space.
       sender.send(
@@ -35,27 +46,29 @@ export function iceCandidate(
 
   //listen for connection state change
   peerConnection.onconnectionstatechange = (event) => {
-    console.log("The connection has been ESHTABILISHED");
-    console.log(event);
     console.log(peerConnection.signalingState);
   };
 
-  //set remote stream
-  peerConnection.ontrack = (event) => {
-    const remoteStream = event.streams[0];
-    console.log("The remote stream is", remoteStream);
-    const audioStream = new MediaStream(remoteStream.getAudioTracks());
-    const videoStream = new MediaStream(remoteStream.getVideoTracks());
-
-    if (typeof setPeerAudioTrack !== "function") {
-      throw new Error("setPeerAudioTrack is not a function");
+  peerConnection.onnegotiationneeded = async () => {
+    console.log("Negotiation is required. sending again the sdp offers.");
+    if (!hasInitialNegotiationCompleted.current) {
+      console.log("FAILED TO SEND, INITIAL NEGOTIATION NOT YET COMPLETED");
+      return;
     }
-    if (typeof setPeerVideoTrack !== "function") {
-      throw new Error("setPeerVideoTrack is not a function");
-    }
+    const sdpOfferSendAndCreate = async () => {
+      if (!sender || !peerConnection) {
+        return;
+      }
 
-    setPeerAudioTrack(audioStream);
-    setPeerVideoTrack(videoStream);
+      const res = await createSdpOffer(
+        sender,
+        localStorage.getItem("roomId") as string,
+        peerConnection,
+        deviceTypeToID.current
+      );
+      return res;
+    };
+    sdpOfferSendAndCreate();
   };
 
   navigator.mediaDevices.ondevicechange = async () => {
@@ -63,12 +76,21 @@ export function iceCandidate(
     await updateMediaStream({
       setVideoOptions,
       setAudioInputOptions,
-      setSrcAudioTrack,
-      setSrcVideoTrack,
     });
 
-    if (localStream && peerConnection) {
-      localStream.getTracks().forEach((track) => {
+    if (srcAudioStream && peerConnection) {
+      srcAudioStream.getTracks().forEach((track) => {
+        const sender = peerConnection
+          .getSenders()
+          .find((s) => s.track === track);
+        if (sender) {
+          peerConnection.removeTrack(sender);
+        }
+      });
+    }
+
+    if (srcVideoStream && peerConnection) {
+      srcVideoStream.getTracks().forEach((track) => {
         const sender = peerConnection
           .getSenders()
           .find((s) => s.track === track);
@@ -81,9 +103,9 @@ export function iceCandidate(
     if (peerConnection) {
       await getUserMedia(
         peerConnection,
-        setSrcAudioTrack,
-        setSrcVideoTrack,
-        setLocalStream
+        setSrcAudioStream,
+        setSrcVideoStream,
+        deviceTypeToID
       );
     }
   };
