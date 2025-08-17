@@ -12,7 +12,8 @@ export async function getDisplayMedia() {
 }
 
 export async function startScreenShare(
-  pc: RTCPeerConnection,
+  // here the full peer list will come
+  peerConnectionInfo: React.RefObject<peerConnectionInfo[]>,
   deviceTypeToID: React.RefObject<Map<string, string>>
 ) {
   try {
@@ -25,20 +26,18 @@ export async function startScreenShare(
       "Added screen share to map Final state is: ",
       Object.fromEntries(deviceTypeToID.current)
     );
-    displayMedia.getTracks().forEach((track) => {
-      pc.addTrack(track, displayMedia);
+    peerConnectionInfo.current.forEach((peer) => {
+      const pc = peer.peerConnection;
+      displayMedia.getTracks().forEach((track) => {
+        pc.addTrack(track, displayMedia);
+      });
     });
   } catch (e) {
     console.log(e);
   }
 }
 
-export default async function getUserDevices(
-  peerConnection: RTCPeerConnection,
-  setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>,
-  setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>,
-  deviceTypeToID: React.RefObject<Map<string, string>>
-) {
+export default async function getUserDevices() {
   try {
     const audioStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -48,18 +47,10 @@ export default async function getUserDevices(
       audio: false,
       video: true,
     });
-    //Add the device id along with kind in the MAP.
-    deviceTypeToID.current.clear();
-    deviceTypeToID.current.set(audioStream.id, "peerAudio");
-    deviceTypeToID.current.set(videoStream.id, "peerVideo");
-    audioStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, audioStream);
-    });
-    setSrcAudioStream(audioStream);
-    videoStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, videoStream);
-    });
-    setSrcVideoStream(videoStream);
+    console.log("The audio stream achieved are");
+    console.log("audio stream", audioStream);
+    console.log("Video stream", videoStream);
+    return [audioStream, videoStream];
   } catch (e) {
     console.log(e);
     return null;
@@ -81,11 +72,17 @@ export async function updateMediaStream(props: updateMediaInputs) {
   props.setAudioInputOptions(audioOptions);
   props.setVideoOptions(videoOptions);
 }
+interface peerConnectionInfo {
+  to: string;
+  peerConnection: RTCPeerConnection;
+  remoteDeviceTypeToId: Map<string, string>;
+  pendingIceCandidates: RTCIceCandidate[];
+}
 
 interface switchMediaInputs {
   kind: "audioinput" | "videoinput" | "audiooutput";
   deviceId: string;
-  peerConnection: RTCPeerConnection;
+  peerConnectionInfo: React.RefObject<peerConnectionInfo[]>;
   srcVideoStream: MediaStream | undefined;
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   srcAudioStream: MediaStream | undefined;
@@ -93,12 +90,12 @@ interface switchMediaInputs {
 }
 export async function switchMedia(props: switchMediaInputs) {
   if (props.kind === "audioinput") {
-    const currentVideoDeviceId = props.srcVideoStream
-      ?.getVideoTracks()[0]
-      ?.getSettings().deviceId;
-    if (!currentVideoDeviceId) {
-      return;
-    }
+    // const currentVideoDeviceId = props.srcVideoStream
+    //   ?.getVideoTracks()[0]
+    //   ?.getSettings().deviceId;
+    // if (!currentVideoDeviceId) {
+    //   return;
+    // }
     const newConstraints = {
       audio: { deviceId: { exact: props.deviceId } },
     };
@@ -106,28 +103,32 @@ export async function switchMedia(props: switchMediaInputs) {
       const newAudioStream = await navigator.mediaDevices.getUserMedia(
         newConstraints
       );
-      //stop the current stream
+      //stop the current stream locally
       props.srcAudioStream?.getTracks().forEach((track) => {
-        if (track.kind === "audioinput") {
+        if (track.kind === "audio") {
           track.stop();
         }
       });
       props.setSrcAudioStream(newAudioStream);
-      props.peerConnection.getSenders().forEach((sender) => {
-        if (sender.track?.kind === "audio") {
-          sender.replaceTrack(newAudioStream.getAudioTracks()[0]);
-        }
+      //Make changes here. enumerate all the peer connections and set the new value there
+      props.peerConnectionInfo.current.forEach((peer) => {
+        const peerConnection = peer.peerConnection;
+        peerConnection.getSenders().forEach((sender) => {
+          if (sender.track?.kind === "audio") {
+            sender.replaceTrack(newAudioStream.getAudioTracks()[0]);
+          }
+        });
       });
     } catch (e) {
       console.log(e);
     }
   } else if (props.kind === "videoinput") {
-    const currentAudioDeviceId = props.srcAudioStream
-      ?.getAudioTracks()[0]
-      ?.getSettings().deviceId;
-    if (!currentAudioDeviceId) {
-      return;
-    }
+    // const currentAudioDeviceId = props.srcAudioStream
+    //   ?.getAudioTracks()[0]
+    //   ?.getSettings().deviceId;
+    // if (!currentAudioDeviceId) {
+    //   return;
+    // }
 
     const newVideoConstraints = {
       video: { deviceId: { exact: props.deviceId } },
@@ -139,15 +140,19 @@ export async function switchMedia(props: switchMediaInputs) {
       );
       //stop the current stream
       props.srcVideoStream?.getTracks().forEach((track) => {
-        if (track.kind === "videoinput") {
+        if (track.kind === "video") {
           track.stop();
         }
       });
       props.setSrcVideoStream(newVideoStream);
-      props.peerConnection.getSenders().forEach((sender) => {
-        if (sender.track?.kind === "video") {
-          sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
-        }
+      //Make changes here. enumerate all the peer connections and set the new value there
+      props.peerConnectionInfo.current.forEach((peer) => {
+        const peerConnection = peer.peerConnection;
+        peerConnection.getSenders().forEach((sender) => {
+          if (sender.track?.kind === "video") {
+            sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
+          }
+        });
       });
     } catch (e) {
       console.log(e);

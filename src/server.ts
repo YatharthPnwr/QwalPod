@@ -44,25 +44,19 @@ nextApp.prepare().then(() => {
     ws.on("message", async function (msg) {
       const { event, data } = JSON.parse(msg.toString());
       //Logic to assign a room to the user.
+      if (event == "getUsersInRoom") {
+        const roomId = data.roomId;
+        const res = JSON.stringify(podMan.getExistingUsers(roomId));
+        ws.send(res);
+      }
       if (event == "createNewRoom") {
         const res = JSON.stringify(podMan.createRoom(ws));
         ws.send(res);
       }
       if (event == "joinRoom") {
         const res = podMan.joinRoom(ws, data.roomId, data.userId);
-        if (res.type === "participantJoined") {
-          wss.clients.forEach((client) => {
-            client.send(JSON.stringify(res));
-          });
-        } else {
-          ws.send(JSON.stringify(res));
-        }
-      }
-      if (event == "hostJoin") {
-        const res = JSON.stringify(
-          podMan.joinRoom(ws, data.roomId, data.userId)
-        );
-        ws.send(res);
+
+        ws.send(JSON.stringify(res));
       }
 
       //A handler that sends the sdp offer to all the clients in the podSpace.
@@ -72,6 +66,8 @@ nextApp.prepare().then(() => {
             data.roomId,
             data.offer,
             new Map(Object.entries(data.streamMetaData)),
+            data.fromId,
+            data.toId,
             ws
           )
         );
@@ -84,6 +80,8 @@ nextApp.prepare().then(() => {
           await podMan.answer(
             data.roomId,
             data.answer,
+            data.fromId,
+            data.toId,
             new Map(Object.entries(data.streamMetaData)),
             ws
           )
@@ -94,7 +92,13 @@ nextApp.prepare().then(() => {
       //A handler to send the ice candidates
       if (event == "trickleIce") {
         const res = JSON.stringify(
-          await podMan.trickleIce(data.roomId, data.iceCandidate, ws)
+          await podMan.trickleIce(
+            data.roomId,
+            data.iceCandidate,
+            data.fromId,
+            data.toId,
+            ws
+          )
         );
         ws.send(res);
       }

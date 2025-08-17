@@ -1,29 +1,34 @@
-export async function createSdpOffer(
-  sender: WebSocket,
-  roomId: string,
-  peerConnection: RTCPeerConnection,
-  streamMetadata: Map<string, string>
-) {
+interface createSDPOfferInputs {
+  sender: WebSocket;
+  roomId: string;
+  peerConnection: RTCPeerConnection;
+  streamMetadata: Map<string, string>;
+  fromId: string;
+  toId: string;
+}
+export async function createSdpOffer(props: createSDPOfferInputs) {
   try {
     // Create offer with options to preserve existing tracks
-    const localOffer = await peerConnection.createOffer({
+    const localOffer = await props.peerConnection.createOffer({
       offerToReceiveAudio: true,
       offerToReceiveVideo: true,
     });
 
-    await peerConnection.setLocalDescription(localOffer);
+    await props.peerConnection.setLocalDescription(localOffer);
 
-    if (!sender) {
+    if (!props.sender) {
       console.log("No sender found returning");
       return;
     }
-    const res = sender.send(
+    const res = props.sender.send(
       JSON.stringify({
         event: "sendSdpOffer",
         data: {
-          roomId: roomId,
+          roomId: props.roomId,
           offer: localOffer,
-          streamMetaData: Object.fromEntries(streamMetadata),
+          streamMetaData: Object.fromEntries(props.streamMetadata),
+          fromId: props.fromId,
+          toId: props.toId,
         },
       })
     );

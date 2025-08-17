@@ -38,15 +38,42 @@ export class podSpaceManager {
       data: roomId,
     } as const satisfies WsResponse;
   }
+
+  public getExistingUsers(roomId: string) {
+    console.log("The roomId reaching the server is", roomId);
+    const room = this.rooms.find((room) => {
+      return room.roomId === roomId;
+    });
+
+    if (!room) {
+      return {
+        type: "error",
+        data: "no room with the given room id found.",
+      } as const satisfies WsResponse;
+    }
+
+    const existingUsersInRoom = room.users;
+    console.log(existingUsersInRoom);
+    const existingUsersIds: string[] = [];
+    existingUsersInRoom.forEach((usr) => {
+      console.log(usr.userId);
+      existingUsersIds.push(usr.userId);
+    });
+    console.log("SENDING THE FOLLOWING USERS", existingUsersIds);
+    return {
+      type: "existingUsers",
+      data: existingUsersIds,
+    };
+  }
+
   public joinRoom(ws: WSWebSocket, roomId: string, userId: string) {
     const user: User = {
       userId: userId,
       webSocket: ws,
     };
+    console.log("The room id found is", this.rooms);
     const room = this.rooms.find((room) => {
-      if (room.roomId === roomId) {
-        return room;
-      }
+      return room.roomId === roomId;
     });
     if (!room) {
       return {
@@ -56,19 +83,22 @@ export class podSpaceManager {
     }
     //add the new user to the room.
     room.users.push(user);
+    room.users.forEach((usr) => {
+      process.stdout.write(usr.userId);
+    });
+
+    //ALso return the existing users in the room array.
+    const existingUsers = room.users.map((user) => {
+      return user.userId;
+    });
+    console.log("Sending the existing users", existingUsers);
 
     //if the new user is the host, emit the hostJoined event
-    if (room.creator === ws) {
-      return {
-        type: "hostJoined",
-        data: "Host joined the room successfully.",
-      };
-    } else {
-      return {
-        type: "participantJoined",
-        data: "Participant joined the room successfully",
-      };
-    }
+    return {
+      type: "participantJoined",
+      data: "Participant joined the room successfully",
+      existingUsers: existingUsers,
+    };
   }
 
   /**
@@ -82,6 +112,8 @@ export class podSpaceManager {
     roomId: string,
     offer: RTCSessionDescriptionInit,
     streamMetaData: Map<string, string>,
+    fromId: string,
+    toId: string,
     ws: WSWebSocket
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
@@ -95,28 +127,41 @@ export class podSpaceManager {
         error: "Failed to find room",
       } as const satisfies WsResponse;
     }
-    //send the offers to all the users.
-    currentPod.users.forEach((user) => {
-      if (user.webSocket != ws) {
-        user.webSocket.send(
-          JSON.stringify({
-            type: "offer",
-            data: offer,
-            streamMetaData: Object.fromEntries(streamMetaData),
-          })
-        );
-      }
+    //find the toUser in the given room and send the sdp
+    //offer to them only.
+    const targetPeer = currentPod.users.find((usr) => {
+      return usr.userId == toId;
     });
+    if (!targetPeer) {
+      return {
+        type: "error",
+        data: "No user found to send the sdp offer to",
+      } as const satisfies WsResponse;
+    }
+    //send the offer to the target Peer.
+    targetPeer?.webSocket.send(
+      JSON.stringify({
+        type: "offer",
+        data: {
+          offer: offer,
+          fromId: fromId,
+          toId: toId,
+          streamMetaData: Object.fromEntries(streamMetaData),
+        },
+      })
+    );
 
     return {
       type: "success",
-      data: "Sent the sdp offers to all the users in the room.",
+      data: `Sent the sdp offer to the userId ${toId}`,
     } as const satisfies WsResponse;
   }
 
   public async answer(
     roomId: string,
     answer: string,
+    fromId: string,
+    toId: string,
     streamMetaData: Map<string, string>,
     ws: WSWebSocket
   ): Promise<WsResponse> {
@@ -129,27 +174,50 @@ export class podSpaceManager {
         data: "Failed to find room",
       } as const satisfies WsResponse;
     }
-    currentPod?.users.forEach((user) => {
-      if (user.webSocket != ws) {
-        user.webSocket.send(
-          JSON.stringify({
-            type: "answer",
-            data: answer,
-            streamMetaData: Object.fromEntries(streamMetaData),
-          })
-        );
-      }
-    });
+    // currentPod?.users.forEach((user) => {
+    //   if (user.webSocket != ws) {
+    //     user.webSocket.send(
+    //       JSON.stringify({
+    //         type: "answer",
+    //         data: answer,
+    //         streamMetaData: Object.fromEntries(streamMetaData),
+    //       })
+    //     );
+    //   }
+    // });
 
+    //Send the answer only to the specified user.
+    const targetPeer = currentPod?.users.find((usr) => {
+      return usr.userId == toId;
+    });
+    if (!targetPeer) {
+      return {
+        type: "error",
+        data: "Could not find the target peer",
+      };
+    }
+    targetPeer.webSocket.send(
+      JSON.stringify({
+        type: "answer",
+        data: {
+          answer: answer,
+          streamMetaData: Object.fromEntries(streamMetaData),
+          fromId: fromId,
+          toId: toId,
+        },
+      })
+    );
     return {
       type: "success",
-      data: "Sent the ans to all the users in the room.",
+      data: `Sent the ans to userId ${toId}`,
     } as const satisfies WsResponse;
   }
 
   public async trickleIce(
     roomId: string,
     iceCandidate: string,
+    fromId: string,
+    toId: string,
     ws: WSWebSocket
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
@@ -162,16 +230,37 @@ export class podSpaceManager {
       } as const satisfies WsResponse;
     }
 
-    currentPod.users.forEach((user) => {
-      if (user.webSocket != ws) {
-        user.webSocket.send(
-          JSON.stringify({
-            type: "iceCandidate",
-            data: iceCandidate,
-          })
-        );
-      }
+    //Send the ICE CANDIDATE TO PARTICULAR USER.
+    // currentPod.users.forEach((user) => {
+    //   if (user.webSocket != ws) {
+    //     user.webSocket.send(
+    //       JSON.stringify({
+    //         type: "iceCandidate",
+    //         data: iceCandidate,
+    //       })
+    //     );
+    //   }
+    // });
+
+    const targetPeer = currentPod?.users.find((usr) => {
+      return usr.userId == toId;
     });
+    if (!targetPeer) {
+      return {
+        type: "error",
+        data: "Could not find the target peer",
+      };
+    }
+    targetPeer.webSocket.send(
+      JSON.stringify({
+        type: "iceCandidate",
+        data: {
+          iceCandidate: iceCandidate,
+          fromId: fromId,
+          toId: toId,
+        },
+      })
+    );
     return {
       type: "success",
       data: "Sent the ice candidates successfully.",

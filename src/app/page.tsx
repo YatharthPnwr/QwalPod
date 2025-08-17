@@ -59,12 +59,18 @@ export default function DashBoard() {
         <input
           ref={roomIdRef}
           type="text"
-          className="bg-black h-10 w-32 mx-10"
-        ></input>
+          className="bg-black h-10 w-32 mx-10 text-white px-2"
+          placeholder="Enter room ID"
+        />
         <button
           className="text-neutral-950 bg-yellow-300 h-10 w-28 border rounded-4xl"
           onClick={() => {
-            router.push(`/podcast/${roomIdRef.current?.value}`);
+            const roomId = roomIdRef.current?.value?.trim();
+            localStorage.setItem("roomId", roomId as string);
+            console.log("The roomId being sent is,", roomId);
+            if (roomId) {
+              router.push(`/podcast/${roomId}`);
+            }
           }}
         >
           Join a Room

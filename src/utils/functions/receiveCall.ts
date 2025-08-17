@@ -46,20 +46,20 @@ export async function receiveCall(
   // FROM CALEE SIDE TESTING THE SCREEN SHARE FUNCTIONALITY WILL STILL BE LEFT AFTER THIS.
   // The calee screen share works perfectly.
   peerConnection.ontrack = null;
-  peerConnection.ontrack = (event) => {
-    const remoteStream = event.streams[0];
-    const remoteStreamId = remoteStream.id;
-    const remoteDeviceType = remoteDeviceTypeToId.current.get(remoteStreamId);
+  // peerConnection.ontrack = (event) => {
+  //   const remoteStream = event.streams[0];
+  //   const remoteStreamId = remoteStream.id;
+  //   const remoteDeviceType = remoteDeviceTypeToId.current.get(remoteStreamId);
 
-    if (remoteDeviceType === "peerAudio") {
-      setPeerAudioStream(remoteStream);
-    } else if (remoteDeviceType === "peerVideo") {
-      setPeerVideoStream(remoteStream);
-    } else if (remoteDeviceType === "peerScreenShare") {
-      setPeerScreenShareVideoStream(remoteStream);
-      setPeerScreenShareAudioStream(remoteStream);
-    }
-  };
+  //   if (remoteDeviceType === "peerAudio") {
+  //     setPeerAudioStream(remoteStream);
+  //   } else if (remoteDeviceType === "peerVideo") {
+  //     setPeerVideoStream(remoteStream);
+  //   } else if (remoteDeviceType === "peerScreenShare") {
+  //     setPeerScreenShareVideoStream(remoteStream);
+  //     setPeerScreenShareAudioStream(remoteStream);
+  //   }
+  // };
 
   iceCandidate(
     receiver,

@@ -14,6 +14,12 @@ import {
   switchMedia,
 } from "@/utils/functions/getDevicesAndMedia";
 import { useMediaPredicate } from "react-media-hook";
+interface peerConnectionInfo {
+  to: string;
+  peerConnection: RTCPeerConnection;
+  remoteDeviceTypeToId: Map<string, string>;
+  pendingIceCandidates: RTCIceCandidate[];
+}
 
 interface ControlsInput {
   audioInputOptions: MediaDeviceInfo[] | undefined;
@@ -24,7 +30,7 @@ interface ControlsInput {
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   srcAudioStream: MediaStream | undefined;
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
-  peerConnection: RTCPeerConnection;
+  peerConnectionInfo: React.RefObject<peerConnectionInfo[]>;
   deviceTypeToID: React.RefObject<Map<string, string>>;
 }
 export default function Controls(props: ControlsInput) {
@@ -124,13 +130,16 @@ export default function Controls(props: ControlsInput) {
                       : 20
                   }
                   onClick={() => {
-                    const sender = props.peerConnection
-                      .getSenders()
-                      .find((s) => s.track?.kind === "audio");
+                    props.peerConnectionInfo.current.forEach((peer) => {
+                      const peerConnection = peer.peerConnection;
+                      const sender = peerConnection
+                        .getSenders()
+                        .find((s) => s.track?.kind === "audio");
+                      if (sender && sender.track) {
+                        sender.track.enabled = false;
+                      }
+                    });
 
-                    if (sender && sender.track) {
-                      sender.track.enabled = false;
-                    }
                     setMicOn(false);
                   }}
                 />
@@ -150,18 +159,23 @@ export default function Controls(props: ControlsInput) {
                       : 20
                   }
                   onClick={() => {
-                    const sender = props.peerConnection
-                      .getSenders()
-                      .find((s) => s.track?.kind === "audio");
+                    props.peerConnectionInfo.current.forEach((peer) => {
+                      const peerConnection = peer.peerConnection;
+                      const sender = peerConnection
+                        .getSenders()
+                        .find((s) => s.track?.kind === "audio");
+                      if (sender && sender.track) {
+                        sender.track.enabled = true;
+                      }
+                    });
 
-                    if (sender && sender.track) {
-                      sender.track.enabled = true;
-                    }
                     setMicOn(true);
                   }}
                 />
               )}
             </div>
+            {/* Make this functional instead of just 1 peerconnection. send in all the peer connections object.*/}
+            {/* Then enumerate each peer connection and set the audio input as the new audio input */}
             {audioSelectionModal && (
               <div className="SelectAudioInputModal absolute rounded-2xl bottom-32 w-52 h-48 bg-gray-800 p-5">
                 <ul className="overflow-y-scroll">
@@ -177,7 +191,7 @@ export default function Controls(props: ControlsInput) {
                           setSrcVideoStream: props.setSrcVideoStream,
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
-                          peerConnection: props.peerConnection,
+                          peerConnectionInfo: props.peerConnectionInfo,
                         });
                       }}
                     >
@@ -262,6 +276,7 @@ export default function Controls(props: ControlsInput) {
                 />
               )}
             </div>
+            {/* Make this functional as well. instead of 1 peerConnection, send in the full peerList */}
             {videoSelectionModal && (
               <div className="SelectVideoInputModal absolute rounded-2xl bottom-32 w-52 h-48 bg-gray-800 p-5">
                 <ul className="">
@@ -277,7 +292,7 @@ export default function Controls(props: ControlsInput) {
                           setSrcVideoStream: props.setSrcVideoStream,
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
-                          peerConnection: props.peerConnection,
+                          peerConnectionInfo: props.peerConnectionInfo,
                         });
                       }}
                     >
@@ -289,10 +304,11 @@ export default function Controls(props: ControlsInput) {
             )}
           </div>
           <div
+            // Make this functional as well.
             className="shareScreenPod rounded-2xl w-full md:w-2/3 h-3/4 flex items-center justify-center bg-green-500"
             onClick={async () => {
               await startScreenShare(
-                props.peerConnection,
+                props.peerConnectionInfo,
                 props.deviceTypeToID
               );
             }}
