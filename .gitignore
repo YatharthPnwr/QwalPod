@@ -43,3 +43,5 @@ next-env.d.ts
 src/lib/lib
 src/utils/utils
 THINGSTODO.MD
+# clerk configuration (can include secrets)
+/.clerk/

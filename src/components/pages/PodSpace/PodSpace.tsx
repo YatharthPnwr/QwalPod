@@ -23,6 +23,8 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const [srcVideoStream, setSrcVideoStream] = useState<MediaStream | undefined>(
     undefined
   );
+  const initialSrcAudioStream = useRef<MediaStream | undefined>(undefined);
+  const initialSrcVideoStream = useRef<MediaStream | undefined>(undefined);
   const hasInitialNegotiationCompleted = useRef<boolean>(false);
 
   const [audioInputOptions, setAudioInputOptions] =
@@ -138,6 +140,11 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
       const mediaStreams = await getUserDevices();
       if (mediaStreams) {
         const [audioStream, videoStream] = mediaStreams;
+        initialSrcAudioStream.current = audioStream;
+        initialSrcVideoStream.current = videoStream;
+        console.log("INTIAL SRC AUDIO", initialSrcAudioStream.current);
+        console.log("INTIAL SRC video", initialSrcVideoStream.current);
+
         setSrcAudioStream(audioStream);
         setSrcVideoStream(videoStream);
         //Add the device id along with kind in the MAP.
@@ -157,10 +164,11 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
       } else if (res.type === "participantJoined") {
         //the newly joined participant should first get the list of all the
         //users in the room.
-
-        //Implement the logic so that the people already in the room,
+        console.log("participant joined triggered ");
+        await new Promise((resolve) => setTimeout(resolve, 5000));
         //Do not send a connection req to everyone in the array, rather.
         //The new person that joined, should only initialte the calls.
+        console.log("After 5 seconds");
         const existingUsers = res.existingUsers;
         const currentUserId = localStorage.getItem("userId");
         //Check if for the new existing users array, the diff between the existing users,
@@ -196,24 +204,49 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
             const newPeerConnection = new RTCPeerConnection(config);
             initializePeerStream(usr);
-            const mediaStreams = await getUserDevices();
-            if (mediaStreams) {
-              const [audioStream, videoStream] = mediaStreams;
-              setSrcAudioStream(audioStream);
-              setSrcVideoStream(videoStream);
-              //Add the device id along with kind in the MAP.
-              deviceTypeToID.current.clear();
-              deviceTypeToID.current.set(audioStream.id, "peerAudio");
-              deviceTypeToID.current.set(videoStream.id, "peerVideo");
-
-              audioStream.getTracks().forEach((track) => {
-                newPeerConnection.addTrack(track, audioStream);
-              });
-              setSrcAudioStream(audioStream);
-              videoStream.getTracks().forEach((track) => {
-                newPeerConnection.addTrack(track, videoStream);
-              });
+            // const mediaStreams = await getUserDevices();
+            // if (mediaStreams) {
+            //   const [audioStream, videoStream] = mediaStreams;
+            //   setSrcAudioStream(audioStream);
+            //   setSrcVideoStream(videoStream);
+            //   //Add the device id along with kind in the MAP.
+            //   deviceTypeToID.current.clear();
+            //   deviceTypeToID.current.set(audioStream.id, "peerAudio");
+            //   deviceTypeToID.current.set(videoStream.id, "peerVideo");
+            if (
+              !initialSrcAudioStream.current ||
+              !initialSrcVideoStream.current
+            ) {
+              console.log(
+                "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND"
+              );
+              return;
             }
+            initialSrcAudioStream.current.getTracks().forEach((track) => {
+              if (
+                !initialSrcAudioStream.current ||
+                !initialSrcVideoStream.current
+              ) {
+                console.log(
+                  "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                );
+                return;
+              }
+              newPeerConnection.addTrack(track, initialSrcAudioStream.current);
+            });
+            initialSrcVideoStream.current.getTracks().forEach((track) => {
+              if (
+                !initialSrcAudioStream.current ||
+                !initialSrcVideoStream.current
+              ) {
+                console.log(
+                  "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                );
+                return;
+              }
+              newPeerConnection.addTrack(track, initialSrcVideoStream.current);
+            });
+            // }
 
             //Create a new object containing the userId(to), peerConnection, remoteStream(audio, video & screenshare)
             const newUser: peerConnectionInfo = {
@@ -224,6 +257,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
             };
             //Add the new object to an array keeping track of all the peerConnections.
             peerConnectionInfo.current.push(newUser);
+            console.log("NEW USER PUSHED", newUser);
 
             //Send the new SDP offer and the IceCandidates from: the userID, to: The id to which the offer should be sent to
             if (!ws.current) {
@@ -279,37 +313,41 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
                 setAudioInputOptions,
               });
 
-              if (srcAudioStream && newPeerConnection) {
-                srcAudioStream.getTracks().forEach((track) => {
-                  const sender = newPeerConnection
-                    .getSenders()
-                    .find((s) => s.track === track);
-                  if (sender) {
-                    newPeerConnection.removeTrack(sender);
-                  }
-                });
+              const mediaStreams = await getUserDevices();
+              if (!mediaStreams) return;
+              const [newAudioStream, newVideoStream] = mediaStreams;
+
+              // Replace audio track
+              if (srcAudioStream && newAudioStream) {
+                const oldAudioTrack = srcAudioStream.getAudioTracks()[0];
+                const newAudioTrack = newAudioStream.getAudioTracks()[0];
+                if (oldAudioTrack) srcAudioStream.removeTrack(oldAudioTrack);
+                if (newAudioTrack) srcAudioStream.addTrack(newAudioTrack);
               }
 
-              if (srcVideoStream && newPeerConnection) {
-                srcVideoStream.getTracks().forEach((track) => {
-                  const sender = newPeerConnection
-                    .getSenders()
-                    .find((s) => s.track === track);
-                  if (sender) {
-                    newPeerConnection.removeTrack(sender);
-                  }
-                });
+              // Replace video track
+              if (srcVideoStream && newVideoStream) {
+                const oldVideoTrack = srcVideoStream.getVideoTracks()[0];
+                const newVideoTrack = newVideoStream.getVideoTracks()[0];
+                if (oldVideoTrack) srcVideoStream.removeTrack(oldVideoTrack);
+                if (newVideoTrack) srcVideoStream.addTrack(newVideoTrack);
               }
-              //get the new user media and set it.
-              const mediaStreams = await getUserDevices();
-              if (mediaStreams) {
-                const [audioStream, videoStream] = mediaStreams;
-                setSrcAudioStream(audioStream);
-                setSrcVideoStream(videoStream);
-                //Add the device id along with kind in the MAP.
-                deviceTypeToID.current.clear();
-                deviceTypeToID.current.set(audioStream.id, "peerAudio");
-                deviceTypeToID.current.set(videoStream.id, "peerVideo");
+
+              // Update peer connection tracks seamlessly
+              if (newPeerConnection) {
+                const audioSender = newPeerConnection
+                  .getSenders()
+                  .find((s) => s.track && s.track.kind === "audio");
+                if (audioSender && newAudioStream.getAudioTracks()[0]) {
+                  audioSender.replaceTrack(newAudioStream.getAudioTracks()[0]);
+                }
+
+                const videoSender = newPeerConnection
+                  .getSenders()
+                  .find((s) => s.track && s.track.kind === "video");
+                if (videoSender && newVideoStream.getVideoTracks()[0]) {
+                  videoSender.replaceTrack(newVideoStream.getVideoTracks()[0]);
+                }
               }
             };
           });
@@ -436,28 +474,52 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
           try {
             // Get user media and add tracks
-            const mediaStreams = await getUserDevices();
-            if (mediaStreams) {
-              const [audioStream, videoStream] = mediaStreams;
-              setSrcAudioStream(audioStream);
-              setSrcVideoStream(videoStream);
-
-              // Update device mapping
-              deviceTypeToID.current.clear();
-              deviceTypeToID.current.set(audioStream.id, "peerAudio");
-              deviceTypeToID.current.set(videoStream.id, "peerVideo");
-
-              // Add tracks to peer connection
-              audioStream.getTracks().forEach((track) => {
-                newPeerConnection.addTrack(track, audioStream);
-              });
-              videoStream.getTracks().forEach((track) => {
-                newPeerConnection.addTrack(track, videoStream);
-              });
-            } else {
-              console.log("No streams found returning");
+            if (
+              !initialSrcAudioStream.current ||
+              !initialSrcVideoStream.current
+            ) {
+              console.log(
+                "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND"
+              );
               return;
             }
+            initialSrcAudioStream.current.getTracks().forEach((track) => {
+              if (
+                !initialSrcAudioStream.current ||
+                !initialSrcVideoStream.current
+              ) {
+                console.log(
+                  "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                );
+                return;
+              }
+              newPeerConnection.addTrack(track, initialSrcAudioStream.current);
+            });
+            initialSrcVideoStream.current.getTracks().forEach((track) => {
+              if (
+                !initialSrcAudioStream.current ||
+                !initialSrcVideoStream.current
+              ) {
+                console.log(
+                  "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                );
+                return;
+              }
+              newPeerConnection.addTrack(track, initialSrcVideoStream.current);
+            });
+
+            // if (srcAudioStream && srcVideoStream) {
+            //   // Add tracks to peer connection
+            //   srcAudioStream.getTracks().forEach((track) => {
+            //     newPeerConnection.addTrack(track, srcAudioStream);
+            //   });
+            //   srcVideoStream.getTracks().forEach((track) => {
+            //     newPeerConnection.addTrack(track, srcVideoStream);
+            //   });
+            // } else {
+            //   console.log("No streams found returning");
+            //   return;
+            // }
           } catch (error) {
             console.error("Error in initial offer handling:", error);
           }
@@ -496,7 +558,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
             fromId: localStorage.getItem("userId") as string,
             toId: fromId,
           });
-
           // Add event listeners
           newPeerConnection.onconnectionstatechange = (event) => {
             console.log(
@@ -509,12 +570,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
           newPeerConnection.onnegotiationneeded = async () => {
             console.log("Negotiation needed for peer", fromId);
-            // if (!hasInitialNegotiationCompleted.current) {
-            //   console.log(
-            //     "FAILED TO SEND, INITIAL NEGOTIATION NOT YET COMPLETED"
-            //   );
-            //   return;
-            // }
             if (!ws.current) {
               console.log("No websocket found");
               return;
@@ -531,45 +586,47 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
           // Device change handler
           navigator.mediaDevices.ondevicechange = async () => {
-            console.log("DEVICE CHANGED for peer", fromId);
+            console.log("DEVICE CHANGED");
             await updateMediaStream({
               setVideoOptions,
               setAudioInputOptions,
             });
 
-            // Remove old tracks and add new ones
-            if (srcAudioStream && newPeerConnection) {
-              srcAudioStream.getTracks().forEach((track) => {
-                const sender = newPeerConnection
-                  .getSenders()
-                  .find((s) => s.track === track);
-                if (sender) {
-                  newPeerConnection.removeTrack(sender);
-                }
-              });
+            const mediaStreams = await getUserDevices();
+            if (!mediaStreams) return;
+            const [newAudioStream, newVideoStream] = mediaStreams;
+
+            // Replace audio track
+            if (srcAudioStream && newAudioStream) {
+              const oldAudioTrack = srcAudioStream.getAudioTracks()[0];
+              const newAudioTrack = newAudioStream.getAudioTracks()[0];
+              if (oldAudioTrack) srcAudioStream.removeTrack(oldAudioTrack);
+              if (newAudioTrack) srcAudioStream.addTrack(newAudioTrack);
             }
 
-            if (srcVideoStream && newPeerConnection) {
-              srcVideoStream.getTracks().forEach((track) => {
-                const sender = newPeerConnection
-                  .getSenders()
-                  .find((s) => s.track === track);
-                if (sender) {
-                  newPeerConnection.removeTrack(sender);
-                }
-              });
+            // Replace video track
+            if (srcVideoStream && newVideoStream) {
+              const oldVideoTrack = srcVideoStream.getVideoTracks()[0];
+              const newVideoTrack = newVideoStream.getVideoTracks()[0];
+              if (oldVideoTrack) srcVideoStream.removeTrack(oldVideoTrack);
+              if (newVideoTrack) srcVideoStream.addTrack(newVideoTrack);
             }
 
-            // Get new media streams
-            const newMediaStreams = await getUserDevices();
-            if (newMediaStreams) {
-              const [audioStream, videoStream] = newMediaStreams;
-              setSrcAudioStream(audioStream);
-              setSrcVideoStream(videoStream);
+            // Update peer connection tracks seamlessly
+            if (newPeerConnection) {
+              const audioSender = newPeerConnection
+                .getSenders()
+                .find((s) => s.track && s.track.kind === "audio");
+              if (audioSender && newAudioStream.getAudioTracks()[0]) {
+                audioSender.replaceTrack(newAudioStream.getAudioTracks()[0]);
+              }
 
-              deviceTypeToID.current.clear();
-              deviceTypeToID.current.set(audioStream.id, "peerAudio");
-              deviceTypeToID.current.set(videoStream.id, "peerVideo");
+              const videoSender = newPeerConnection
+                .getSenders()
+                .find((s) => s.track && s.track.kind === "video");
+              if (videoSender && newVideoStream.getVideoTracks()[0]) {
+                videoSender.replaceTrack(newVideoStream.getVideoTracks()[0]);
+              }
             }
           };
         }
@@ -652,83 +709,100 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
       }
     };
   }, []);
+
+  // Total participants = you + peers
+  const totalParticipants = peerConnectionInfo.current.length + 1;
+
+  // Dynamically calculate columns
+  // We'll aim for a square-like layout (sqrt-based) for balance
+  const columns = Math.ceil(Math.sqrt(totalParticipants));
+  const rows = Math.ceil(totalParticipants / columns);
   return (
-    <>
-      <div className="w-screen h-screen grid grid-rows-[75%_25%]">
-        <div className="w-screen grid grid-cols-3 ">
-          <div className="caller h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden">
-            <video
-              autoPlay
-              playsInline
-              muted
-              ref={(video) => {
-                if (video && srcVideoStream) {
-                  video.srcObject = srcVideoStream;
-                }
-              }}
-            ></video>
-          </div>
-          {peerStreamInfo &&
-            peerConnectionInfo.current.map((peerInfo) => {
-              const streams = peerStreamInfo[peerInfo.to] || {};
-              return (
-                <div
-                  key={peerInfo.to}
-                  className="calee h-3/4 w-4/5 mx-auto my-auto rounded-2xl overflow-hidden"
-                >
+    <div className="w-screen h-screen grid grid-rows-[85%_15%] bg-black">
+      {/* Video Section */}
+      <div
+        className="w-full h-full grid gap-4 overflow-x-hidden"
+        style={{
+          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+        }}
+      >
+        {/* Your video */}
+        <div className="relative rounded-2xl overflow-hidden shadow-lg bg-black flex items-center justify-center">
+          <video
+            className="w-full h-full object-cover"
+            autoPlay
+            playsInline
+            muted
+            ref={(video) => {
+              if (video && srcVideoStream) {
+                video.srcObject = srcVideoStream;
+              }
+            }}
+          ></video>
+        </div>
+
+        {/* Peers' videos */}
+        {peerStreamInfo &&
+          peerConnectionInfo.current.map((peerInfo) => {
+            const streams = peerStreamInfo[peerInfo.to] || {};
+            return (
+              <div
+                key={peerInfo.to}
+                className="relative rounded-2xl overflow-hidden shadow-lg bg-black flex items-center justify-center"
+              >
+                <video
+                  className="w-full h-full object-cover"
+                  autoPlay
+                  playsInline
+                  muted
+                  ref={(video) => {
+                    if (video && streams.peerVideoStream) {
+                      video.srcObject = streams.peerVideoStream;
+                    }
+                  }}
+                ></video>
+                <audio
+                  autoPlay
+                  ref={(audio) => {
+                    if (audio && streams.peerAudioStream) {
+                      audio.srcObject = streams.peerAudioStream;
+                    }
+                  }}
+                ></audio>
+                {streams.peerScreenShareVideoStream && (
                   <video
+                    className="absolute top-2 right-2 w-40 h-24 border-2 border-white rounded-lg shadow-lg"
                     autoPlay
                     playsInline
                     muted
                     ref={(video) => {
-                      if (video && streams.peerVideoStream) {
-                        video.srcObject = streams.peerVideoStream;
+                      if (video && streams.peerScreenShareVideoStream) {
+                        video.srcObject = streams.peerScreenShareVideoStream;
                       }
                     }}
                   ></video>
-                  <audio
-                    autoPlay
-                    ref={(audio) => {
-                      if (audio && streams.peerAudioStream) {
-                        audio.srcObject = streams.peerAudioStream;
-                      }
-                    }}
-                  ></audio>
-                  {streams.peerScreenShareVideoStream && (
-                    <video
-                      autoPlay
-                      playsInline
-                      // set this untrue for unmuted
-                      muted
-                      ref={(video) => {
-                        if (video && streams.peerScreenShareVideoStream) {
-                          video.srcObject = streams.peerScreenShareVideoStream;
-                        }
-                      }}
-                    ></video>
-                  )}
-                </div>
-              );
-            })}
-        </div>
-        <div className="w-screen">
-          {
-            <Controls
-              audioInputOptions={audioInputOptions}
-              setAudioInputOptions={setAudioInputOptions}
-              setVideoOptions={setVideoOptions}
-              videoOptions={videoOptions}
-              // peerConnection={peerConnection.current}
-              peerConnectionInfo={peerConnectionInfo}
-              srcVideoStream={srcVideoStream}
-              setSrcVideoStream={setSrcVideoStream}
-              srcAudioStream={srcAudioStream}
-              setSrcAudioStream={setSrcAudioStream}
-              deviceTypeToID={deviceTypeToID}
-            />
-          }
-        </div>
+                )}
+              </div>
+            );
+          })}
       </div>
-    </>
+
+      {/* Controls Section */}
+      <div className="w-full h-full flex items-center justify-center bg-gray-900 shadow-inner">
+        <Controls
+          audioInputOptions={audioInputOptions}
+          setAudioInputOptions={setAudioInputOptions}
+          setVideoOptions={setVideoOptions}
+          videoOptions={videoOptions}
+          peerConnectionInfo={peerConnectionInfo}
+          srcVideoStream={srcVideoStream}
+          setSrcVideoStream={setSrcVideoStream}
+          srcAudioStream={srcAudioStream}
+          setSrcAudioStream={setSrcAudioStream}
+          deviceTypeToID={deviceTypeToID}
+        />
+      </div>
+    </div>
   );
 }

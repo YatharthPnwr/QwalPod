@@ -2,6 +2,17 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserRoleProvider } from "@/lib/context/ApplicationContext";
+import { ThemeProvider } from "next-themes";
+import {
+  ClerkProvider,
+  SignInButton,
+  SignUpButton,
+  SignedIn,
+  SignedOut,
+  UserButton,
+} from "@clerk/nextjs";
+import { NavigationMenu } from "@/components/ui/navigation-menu";
+import { Button } from "@/components/ui/button";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,12 +35,58 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <UserRoleProvider>{children}</UserRoleProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        >
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            forcedTheme="dark"
+          >
+            {/* <header className="flex justify-end items-center p-4 gap-4 h-16">
+              
+            </header> */}
+            <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
+              <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+                <div>skjdfhs</div>
+                <nav className="hidden items-center gap-4 md:flex lg:gap-8">
+                  <a className="text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                    hello
+                    <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+                  </a>
+
+                  <a className="text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                    hello
+                    <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+                  </a>
+
+                  <a className="text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                    hello
+                    <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+                  </a>
+                </nav>
+                <div className="hidden cursor-pointer items-center gap-4 md:flex">
+                  <div className="flex items-center gap-4">
+                    <SignedOut>
+                      <SignInButton />
+                      <SignUpButton>
+                        <Button>Sign up</Button>
+                      </SignUpButton>
+                    </SignedOut>
+                    <SignedIn>
+                      <UserButton />
+                    </SignedIn>
+                  </div>
+                </div>
+              </div>
+            </header>
+            <UserRoleProvider>{children}</UserRoleProvider>
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

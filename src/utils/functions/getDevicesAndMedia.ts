@@ -123,13 +123,6 @@ export async function switchMedia(props: switchMediaInputs) {
       console.log(e);
     }
   } else if (props.kind === "videoinput") {
-    // const currentAudioDeviceId = props.srcAudioStream
-    //   ?.getAudioTracks()[0]
-    //   ?.getSettings().deviceId;
-    // if (!currentAudioDeviceId) {
-    //   return;
-    // }
-
     const newVideoConstraints = {
       video: { deviceId: { exact: props.deviceId } },
     };
