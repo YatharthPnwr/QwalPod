@@ -7,7 +7,7 @@ import {
   CameraOff,
   ScreenShareIcon,
 } from "lucide-react";
-import { SetStateAction, Dispatch, useEffect, useState } from "react";
+import React, { SetStateAction, Dispatch, useEffect, useState } from "react";
 
 import {
   startScreenShare,
@@ -32,6 +32,9 @@ interface ControlsInput {
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   peerConnectionInfo: React.RefObject<peerConnectionInfo[]>;
   deviceTypeToID: React.RefObject<Map<string, string>>;
+  audioRecorderRef: React.RefObject<MediaRecorder | null>;
+  videoRecorderRef: React.RefObject<MediaRecorder | null>;
+  webWorkerRef: React.RefObject<Worker | null>;
 }
 export default function Controls(props: ControlsInput) {
   const [audioSelectionModal, setAudioSelectionModal] =
@@ -192,6 +195,9 @@ export default function Controls(props: ControlsInput) {
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
                           peerConnectionInfo: props.peerConnectionInfo,
+                          audioRecorderRef: props.audioRecorderRef,
+                          videoRecorderRef: props.videoRecorderRef,
+                          webWorkerRef: props.webWorkerRef,
                         });
                       }}
                     >
@@ -293,6 +299,9 @@ export default function Controls(props: ControlsInput) {
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
                           peerConnectionInfo: props.peerConnectionInfo,
+                          audioRecorderRef: props.audioRecorderRef,
+                          videoRecorderRef: props.videoRecorderRef,
+                          webWorkerRef: props.webWorkerRef,
                         });
                       }}
                     >

@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, RefObject, SetStateAction } from "react";
 export async function getDisplayMedia() {
   try {
     const DisplayMedia = await navigator.mediaDevices.getDisplayMedia({
@@ -37,7 +37,11 @@ export async function startScreenShare(
   }
 }
 
-export default async function getUserDevices() {
+export default async function getUserDevices(
+  audioRecorderRef: React.RefObject<MediaRecorder | null>,
+  videoRecorderRef: React.RefObject<MediaRecorder | null>,
+  workerScriptRef: React.RefObject<Worker | null>
+) {
   try {
     const audioStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -47,14 +51,71 @@ export default async function getUserDevices() {
       audio: false,
       video: true,
     });
-    console.log("The audio stream achieved are");
-    console.log("audio stream", audioStream);
-    console.log("Video stream", videoStream);
+    console.log("Starting the local recording of media");
+    const audioRecorder = new MediaRecorder(audioStream);
+    const videoRecorder = new MediaRecorder(videoStream);
+    // Log after starting
+    audioRecorderRef.current = audioRecorder;
+    videoRecorderRef.current = videoRecorder;
+    console.log("Handling Recordings");
+    handleRecording(audioRecorderRef, videoRecorderRef, workerScriptRef);
+
     return [audioStream, videoStream];
   } catch (e) {
     console.log(e);
     return null;
   }
+}
+//Send the blobs of video and audio to the worker script.
+function handleRecording(
+  audioRecorderRef: React.RefObject<MediaRecorder | null>,
+  videoRecorderRef: React.RefObject<MediaRecorder | null>,
+  webWorkerRef: React.RefObject<Worker | null>
+) {
+  console.log("handling recordings");
+  if (!audioRecorderRef.current || !videoRecorderRef.current) {
+    console.log("No audio or video recorders found returning");
+    return;
+  }
+  if (!webWorkerRef.current) {
+    console.log("NO web worker found returning");
+    return;
+  }
+  audioRecorderRef.current.ondataavailable = (e) => {
+    //send the blob to the worker script.
+    if (!webWorkerRef.current) {
+      console.log("NO web worker found returning");
+      return;
+    }
+    webWorkerRef.current.postMessage({
+      roomId: localStorage.getItem("roomId"),
+      event: "saveChunk",
+      type: "audio",
+      datatype: "blob",
+      chunk: e.data,
+    });
+  };
+  videoRecorderRef.current.ondataavailable = (e) => {
+    if (!webWorkerRef.current) {
+      console.log("NO web worker found returning");
+      return;
+    }
+    webWorkerRef.current.postMessage({
+      roomId: localStorage.getItem("roomId"),
+      event: "saveChunk",
+      type: "video",
+      datatype: "blob",
+      chunk: e.data,
+    });
+  };
+  videoRecorderRef.current.onstop = () => {
+    console.log("video recording stopped");
+  };
+  audioRecorderRef.current.onstop = () => {
+    console.log("Audio recording stopped");
+  };
+  audioRecorderRef.current.start(5000);
+  videoRecorderRef.current.start(5000);
 }
 
 interface updateMediaInputs {
@@ -87,30 +148,41 @@ interface switchMediaInputs {
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   srcAudioStream: MediaStream | undefined;
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
+  audioRecorderRef: React.RefObject<MediaRecorder | null>;
+  videoRecorderRef: React.RefObject<MediaRecorder | null>;
+  webWorkerRef: React.RefObject<Worker | null>;
 }
+
 export async function switchMedia(props: switchMediaInputs) {
   if (props.kind === "audioinput") {
-    // const currentVideoDeviceId = props.srcVideoStream
-    //   ?.getVideoTracks()[0]
-    //   ?.getSettings().deviceId;
-    // if (!currentVideoDeviceId) {
-    //   return;
-    // }
     const newConstraints = {
       audio: { deviceId: { exact: props.deviceId } },
     };
+
     try {
       const newAudioStream = await navigator.mediaDevices.getUserMedia(
         newConstraints
       );
-      //stop the current stream locally
+
+      // Stop the audio recorder BEFORE stopping tracks
+      if (
+        props.audioRecorderRef.current &&
+        props.audioRecorderRef.current.state === "recording"
+      ) {
+        console.log("Stopping audio recorder before track switch");
+        props.audioRecorderRef.current.stop();
+      }
+
+      // Stop the current stream locally
       props.srcAudioStream?.getTracks().forEach((track) => {
         if (track.kind === "audio") {
           track.stop();
         }
       });
+
       props.setSrcAudioStream(newAudioStream);
-      //Make changes here. enumerate all the peer connections and set the new value there
+
+      // Update peer connections
       props.peerConnectionInfo.current.forEach((peer) => {
         const peerConnection = peer.peerConnection;
         peerConnection.getSenders().forEach((sender) => {
@@ -119,8 +191,34 @@ export async function switchMedia(props: switchMediaInputs) {
           }
         });
       });
+
+      // Create and start new audio recorder
+      const newAudioRecorder = new MediaRecorder(newAudioStream);
+      props.audioRecorderRef.current = newAudioRecorder;
+
+      // Re-setup audio recording handlers
+      newAudioRecorder.ondataavailable = (e) => {
+        if (!props.webWorkerRef.current) {
+          console.log("NO web worker found returning");
+          return;
+        }
+        props.webWorkerRef.current.postMessage({
+          roomId: localStorage.getItem("roomId"),
+          type: "audio",
+          event: "saveChunk",
+          datatype: "blob",
+          chunk: e.data,
+        });
+      };
+
+      newAudioRecorder.onstop = () => {
+        console.log("Audio recording stopped");
+      };
+
+      newAudioRecorder.start(5000);
+      console.log("New audio recorder started");
     } catch (e) {
-      console.log(e);
+      console.log("Error switching audio device:", e);
     }
   } else if (props.kind === "videoinput") {
     const newVideoConstraints = {
@@ -131,14 +229,26 @@ export async function switchMedia(props: switchMediaInputs) {
       const newVideoStream = await navigator.mediaDevices.getUserMedia(
         newVideoConstraints
       );
-      //stop the current stream
+
+      //  Stop the video recorder BEFORE stopping tracks
+      if (
+        props.videoRecorderRef.current &&
+        props.videoRecorderRef.current.state === "recording"
+      ) {
+        console.log("Stopping video recorder before track switch");
+        props.videoRecorderRef.current.stop();
+      }
+
+      // Stop the current stream
       props.srcVideoStream?.getTracks().forEach((track) => {
         if (track.kind === "video") {
           track.stop();
         }
       });
+
       props.setSrcVideoStream(newVideoStream);
-      //Make changes here. enumerate all the peer connections and set the new value there
+
+      // Update peer connections
       props.peerConnectionInfo.current.forEach((peer) => {
         const peerConnection = peer.peerConnection;
         peerConnection.getSenders().forEach((sender) => {
@@ -147,8 +257,36 @@ export async function switchMedia(props: switchMediaInputs) {
           }
         });
       });
+
+      // Create and start new video recorder
+      console.log("Creating new video recorder with new stream");
+      const newVideoRecorder = new MediaRecorder(newVideoStream);
+
+      props.videoRecorderRef.current = newVideoRecorder;
+
+      // Re-setup video recording handlers
+      newVideoRecorder.ondataavailable = (e) => {
+        if (!props.webWorkerRef.current) {
+          console.log("NO web worker found returning");
+          return;
+        }
+        props.webWorkerRef.current.postMessage({
+          roomId: localStorage.getItem("roomId"),
+          type: "video",
+          event: "saveChunk",
+          datatype: "blob",
+          chunk: e.data,
+        });
+      };
+
+      newVideoRecorder.onstop = () => {
+        console.log("Video recording stopped");
+      };
+
+      newVideoRecorder.start(5000);
+      console.log("New video recorder started");
     } catch (e) {
-      console.log(e);
+      console.log("Error switching video device:", e);
     }
   }
 }

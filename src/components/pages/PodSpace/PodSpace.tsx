@@ -27,13 +27,17 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const initialSrcVideoStream = useRef<MediaStream | undefined>(undefined);
   const hasInitialNegotiationCompleted = useRef<boolean>(false);
 
+  const audioRecorder = useRef<MediaRecorder | null>(null);
+  const videoRecorder = useRef<MediaRecorder | null>(null);
+  const webWorkerRef = useRef<Worker | null>(null);
+
   const [audioInputOptions, setAudioInputOptions] =
     useState<MediaDeviceInfo[]>();
 
   const [videoOptions, setVideoOptions] = useState<MediaDeviceInfo[]>();
   const existingUserIds = useRef<string[]>([]);
   const peerConnectionInfo = useRef<peerConnectionInfo[]>([]);
-  //A recordd from peerId to peerStreamInfo
+  //A record from peerId to peerStreamInfo
   const [peerStreamInfo, setPeerStreamInfo] = useState<
     Record<string, peerStreamInfo>
   >({});
@@ -137,7 +141,16 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
     // Get the user devices and media.
     (async () => {
-      const mediaStreams = await getUserDevices();
+      //initialze a new worker
+      const workerScript = new Worker(
+        new URL("../../../../public/chunkStore.ts", import.meta.url)
+      );
+      webWorkerRef.current = workerScript;
+      const mediaStreams = await getUserDevices(
+        audioRecorder,
+        videoRecorder,
+        webWorkerRef
+      );
       if (mediaStreams) {
         const [audioStream, videoStream] = mediaStreams;
         initialSrcAudioStream.current = audioStream;
@@ -156,7 +169,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
     ws.current.onmessage = async (event) => {
       const res = JSON.parse(event.data.toString());
-
       if (res.type === "error") {
         // console.log(res.data);
       } else if (res.type === "success") {
@@ -313,7 +325,11 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
                 setAudioInputOptions,
               });
 
-              const mediaStreams = await getUserDevices();
+              const mediaStreams = await getUserDevices(
+                audioRecorder,
+                videoRecorder,
+                webWorkerRef
+              );
               if (!mediaStreams) return;
               const [newAudioStream, newVideoStream] = mediaStreams;
 
@@ -525,6 +541,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           }
 
           // Set remote description
+          console.log("setting remore description");
           await newPeerConnection.setRemoteDescription(
             new RTCSessionDescription(remoteOffer)
           );
@@ -536,6 +553,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
           const answer = await newPeerConnection.createAnswer();
           await newPeerConnection.setLocalDescription(answer);
+          console.log("SEding the answer");
 
           // Send the answer
           ws.current.send(
@@ -592,7 +610,11 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
               setAudioInputOptions,
             });
 
-            const mediaStreams = await getUserDevices();
+            const mediaStreams = await getUserDevices(
+              audioRecorder,
+              videoRecorder,
+              webWorkerRef
+            );
             if (!mediaStreams) return;
             const [newAudioStream, newVideoStream] = mediaStreams;
 
@@ -801,6 +823,9 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           srcAudioStream={srcAudioStream}
           setSrcAudioStream={setSrcAudioStream}
           deviceTypeToID={deviceTypeToID}
+          webWorkerRef={webWorkerRef}
+          audioRecorderRef={audioRecorder}
+          videoRecorderRef={videoRecorder}
         />
       </div>
     </div>
