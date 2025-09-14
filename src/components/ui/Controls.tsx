@@ -8,7 +8,6 @@ import {
   ScreenShareIcon,
 } from "lucide-react";
 import React, { SetStateAction, Dispatch, useEffect, useState } from "react";
-
 import {
   startScreenShare,
   switchMedia,
@@ -328,7 +327,20 @@ export default function Controls(props: ControlsInput) {
               }
             />
           </div>
-          <div className="LeavePod rounded-2xl w-full h-3/4 md:w-2/3 flex items-center justify-center bg-red-500">
+          <div
+            className="LeavePod rounded-2xl w-full h-3/4 md:w-2/3 flex items-center justify-center bg-red-500"
+            onClick={() => {
+              //stop the recording
+              props.audioRecorderRef.current?.stop();
+              props.videoRecorderRef.current?.stop();
+              //Send the msg to store the file in the cloud
+              props.webWorkerRef.current?.postMessage({
+                event: "consolidateFile",
+                roomId: localStorage.getItem("roomId"),
+              });
+              //Leave the room
+            }}
+          >
             <Unplug
               size={
                 is2xl ? 35 : isXl ? 30 : isLg ? 30 : isMd ? 25 : isSm ? 25 : 20
