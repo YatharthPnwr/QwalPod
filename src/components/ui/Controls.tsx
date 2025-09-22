@@ -34,6 +34,7 @@ interface ControlsInput {
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
   webWorkerRef: React.RefObject<Worker | null>;
+  userId: string | undefined;
 }
 export default function Controls(props: ControlsInput) {
   const [audioSelectionModal, setAudioSelectionModal] =
@@ -197,6 +198,7 @@ export default function Controls(props: ControlsInput) {
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
                           webWorkerRef: props.webWorkerRef,
+                          userId: props.userId,
                         });
                       }}
                     >
@@ -301,6 +303,7 @@ export default function Controls(props: ControlsInput) {
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
                           webWorkerRef: props.webWorkerRef,
+                          userId: props.userId,
                         });
                       }}
                     >
@@ -336,6 +339,7 @@ export default function Controls(props: ControlsInput) {
               //Send the msg to store the file in the cloud
               props.webWorkerRef.current?.postMessage({
                 event: "consolidateFile",
+                userId: props.userId,
                 roomId: localStorage.getItem("roomId"),
               });
               //Leave the room

@@ -9,7 +9,7 @@ import {
   RefObject,
   useRef,
 } from "react";
-
+import { useEffect } from "react";
 interface applicationContextType {
   userRole: string;
   setUserRole: Dispatch<SetStateAction<string>>;

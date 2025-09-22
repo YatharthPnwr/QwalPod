@@ -2,7 +2,7 @@ import { s3 } from "@/lib/aws/awsS3Client";
 import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  if (!body.fileName || !body.fileType) {
+  if (!body.fileName || !body.fileType || !body.meetingId) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -13,11 +13,12 @@ export async function POST(req: NextRequest) {
   try {
     const fileName = body.fileName;
     const fileType = body.fileType;
+    const meetingId = body.meetingId;
 
     const params = {
-      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
       ContentType: fileType,
-      Key: fileName,
+      Key: `${meetingId}/${fileName}`,
       Expires: 60, // Expires in 60 seconds
       ACL: "public-read",
     };

@@ -4,7 +4,7 @@ export async function POST(req: NextRequest) {
   // initialization
   const body = await req.json();
 
-  if (!body.fileName || !body.contentType) {
+  if (!body.fileName || !body.contentType || !body.meetingId) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -14,9 +14,10 @@ export async function POST(req: NextRequest) {
   }
   let fileName = body.fileName;
   let contentType = body.contentType;
+  let meetingId = body.meetingId;
   const params: any = {
-    Bucket: process.env.AWS_S3_BUCKET_NAME,
-    Key: fileName,
+    Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+    Key: `${meetingId}/${fileName}`,
   };
 
   // add extra params if content type is video

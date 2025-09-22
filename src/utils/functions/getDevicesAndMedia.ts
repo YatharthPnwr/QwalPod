@@ -1,4 +1,4 @@
-import { Dispatch, RefObject, SetStateAction } from "react";
+import { Dispatch, SetStateAction } from "react";
 export async function getDisplayMedia() {
   try {
     const DisplayMedia = await navigator.mediaDevices.getDisplayMedia({
@@ -40,7 +40,8 @@ export async function startScreenShare(
 export default async function getUserDevices(
   audioRecorderRef: React.RefObject<MediaRecorder | null>,
   videoRecorderRef: React.RefObject<MediaRecorder | null>,
-  workerScriptRef: React.RefObject<Worker | null>
+  workerScriptRef: React.RefObject<Worker | null>,
+  userId: string | null
 ) {
   try {
     const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -58,7 +59,12 @@ export default async function getUserDevices(
     audioRecorderRef.current = audioRecorder;
     videoRecorderRef.current = videoRecorder;
     console.log("Handling Recordings");
-    handleRecording(audioRecorderRef, videoRecorderRef, workerScriptRef);
+    handleRecording(
+      audioRecorderRef,
+      videoRecorderRef,
+      workerScriptRef,
+      userId as string
+    );
 
     return [audioStream, videoStream];
   } catch (e) {
@@ -70,7 +76,8 @@ export default async function getUserDevices(
 function handleRecording(
   audioRecorderRef: React.RefObject<MediaRecorder | null>,
   videoRecorderRef: React.RefObject<MediaRecorder | null>,
-  webWorkerRef: React.RefObject<Worker | null>
+  webWorkerRef: React.RefObject<Worker | null>,
+  userId: string
 ) {
   console.log("handling recordings");
   if (!audioRecorderRef.current || !videoRecorderRef.current) {
@@ -89,6 +96,7 @@ function handleRecording(
     }
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
+      userId: userId,
       event: "saveChunk",
       type: "audio",
       datatype: "blob",
@@ -102,6 +110,7 @@ function handleRecording(
     }
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
+      userId: userId,
       event: "saveChunk",
       type: "video",
       datatype: "blob",
@@ -151,6 +160,7 @@ interface switchMediaInputs {
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
   webWorkerRef: React.RefObject<Worker | null>;
+  userId: string | undefined;
 }
 
 export async function switchMedia(props: switchMediaInputs) {
@@ -204,6 +214,7 @@ export async function switchMedia(props: switchMediaInputs) {
         }
         props.webWorkerRef.current.postMessage({
           roomId: localStorage.getItem("roomId"),
+          userId: props.userId,
           type: "audio",
           event: "saveChunk",
           datatype: "blob",
@@ -273,6 +284,7 @@ export async function switchMedia(props: switchMediaInputs) {
         props.webWorkerRef.current.postMessage({
           roomId: localStorage.getItem("roomId"),
           type: "video",
+          userId: props.userId,
           event: "saveChunk",
           datatype: "blob",
           chunk: e.data,

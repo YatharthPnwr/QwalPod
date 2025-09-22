@@ -11,7 +11,13 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = await req.json();
-  if (!body.fileName || !body.uploadId || !body.partNumbers || !body.fileType) {
+  if (
+    !body.fileName ||
+    !body.uploadId ||
+    !body.partNumbers ||
+    !body.fileType ||
+    !body.meetingId
+  ) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -19,7 +25,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { fileName, uploadId, partNumbers } = body;
+  const { fileName, uploadId, partNumbers, meetingId } = body;
 
   //converts the [undefined, undefined.. ] array into [1, 2, 3]
   const totalParts = Array.from({ length: partNumbers }, (_, i) => i + 1);
@@ -29,8 +35,8 @@ export async function POST(req: NextRequest) {
     const presignedUrls = await Promise.all(
       totalParts.map(async (partNumber) => {
         const params = {
-          Bucket: process.env.AWS_S3_BUCKET_NAME,
-          Key: fileName,
+          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+          Key: `${meetingId}/${fileName}`,
           PartNumber: partNumber,
           UploadId: uploadId,
           Expires: 3600 * 3,

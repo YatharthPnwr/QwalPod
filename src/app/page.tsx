@@ -4,6 +4,7 @@ import { useRef, useEffect } from "react";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import { useTheme } from "next-themes";
+import { useUser } from "@clerk/nextjs";
 import {
   SignInButton,
   SignUpButton,
@@ -16,6 +17,7 @@ export default function DashBoard() {
   const router = useRouter();
   const roomIdRef = useRef<HTMLInputElement>(null);
   const { theme, setTheme } = useTheme();
+  const { user, isLoaded } = useUser();
   const { userRole, setUserRole, ws } = useApplicationContext();
   useEffect(() => {
     ws.current = new WebSocket("ws://localhost:3000/api/ws");
@@ -34,10 +36,11 @@ export default function DashBoard() {
         localStorage.setItem("roomId", roomId);
         setUserRole("caller");
         router.push(`/podcast/${roomId}`);
-      } else if (res.type == "clientIdGenerated") {
+      }
+      //@NOTE- REMOVE THIS COMPLETELY after completion of migration to clerk ids.
+      else if (res.type == "clientIdGenerated") {
         const clientId = res.data;
         //set the client id in the localstorage.
-        localStorage.setItem("userId", clientId);
       }
     };
   });
@@ -95,6 +98,7 @@ export default function DashBoard() {
 
       <div>
         <Button
+          size={"lg"}
           onClick={() => {
             //create  a new room,
             if (!ws.current) {

@@ -45,3 +45,5 @@ src/utils/utils
 THINGSTODO.MD
 # clerk configuration (can include secrets)
 /.clerk/
+
+/src/generated/prisma

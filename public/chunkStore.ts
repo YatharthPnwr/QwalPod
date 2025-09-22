@@ -1,6 +1,11 @@
 import axios from "axios";
 const dbName = "qwalPod";
+import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { fetchFile } from "@ffmpeg/util";
+
 let dbInstance: IDBDatabase | null = null;
+let ffmpeg: FFmpeg | null = null;
+let ffmpegReady = false;
 
 // Open DB as soon as the worker loads
 const dbRequest = indexedDB.open(dbName, 1);
@@ -21,7 +26,7 @@ dbRequest.onerror = () => {
   console.error("[Worker] Failed to open IndexedDB :", dbRequest.error);
 };
 
-function consolidateFiles(meetingId: string) {
+function consolidateFiles(meetingId: string, userId: string) {
   if (!dbInstance) {
     console.error("DB not ready yet! ");
     return;
@@ -49,27 +54,98 @@ function consolidateFiles(meetingId: string) {
       console.log(
         "The saving of consolidated files is done, proceeding to upload the videos to the cloud"
       );
-      const finalVideoFileName = getFinalFileName("VIDEO", meetingId);
-      const finalAudioFileName = getFinalFileName("AUDIO", meetingId);
-      await saveToS3(consolidatedVideo, "VIDEO", finalVideoFileName);
-      await saveToS3(consolidatedAudio, "AUDIO", finalAudioFileName);
+      const finalVideoFileName = getFinalFileName("VIDEO", userId);
+      const finalAudioFileName = getFinalFileName("AUDIO", userId);
+      const thumbnailFileName = getFinalFileName("THUMBNAIL", userId);
+      const thumbnail = await generateThumbnail(consolidatedVideo);
+      await saveToS3(
+        thumbnail,
+        "THUMBNAIL",
+        thumbnailFileName,
+        meetingId,
+        userId
+      );
+      await saveToS3(
+        consolidatedVideo,
+        "VIDEO",
+        finalVideoFileName,
+        meetingId,
+        userId
+      );
+      await saveToS3(
+        consolidatedAudio,
+        "AUDIO",
+        finalAudioFileName,
+        meetingId,
+        userId
+      );
     };
     putRequest.onerror = (msg) => {
       console.error((msg.target as IDBOpenDBRequest).error);
     };
   };
 }
+
+async function getFFmpeg() {
+  if (!ffmpeg) {
+    ffmpeg = new FFmpeg();
+    await ffmpeg.load();
+    ffmpegReady = true;
+    console.log("[Worker] FFmpeg loaded once and ready");
+  } else if (!ffmpegReady) {
+    // if another call is waiting for load
+    await new Promise((resolve) => {
+      const check = () => {
+        if (ffmpegReady) resolve(null);
+        else setTimeout(check, 100);
+      };
+      check();
+    });
+  }
+  return ffmpeg;
+}
+//Function to get a thumbnail
+async function generateThumbnail(file: Blob) {
+  const ffmpeg = await getFFmpeg();
+
+  await ffmpeg.load();
+
+  await ffmpeg.writeFile("input.mp4", await fetchFile(file));
+  await ffmpeg.exec([
+    "-i",
+    "input.mp4",
+    "-ss",
+    "00:00:10",
+    "-vframes",
+    "1",
+    "thumb.jpg",
+  ]);
+  const data = await ffmpeg.readFile("thumb.jpg");
+  return new Blob([new Uint8Array(data as Uint8Array)], { type: "image/jpeg" });
+}
+
 //Function to get the final video file name
-function getFinalFileName(type: "VIDEO" | "AUDIO", meetingId: string): string {
+function getFinalFileName(
+  type: "VIDEO" | "AUDIO" | "THUMBNAIL",
+  userId: string
+): string {
   if (type == "VIDEO") {
-    return meetingId + "_" + "VIDEO";
+    return userId + "_" + "VIDEO";
+  } else if (type == "AUDIO") {
+    return userId + "_" + "AUDIO";
   } else {
-    return meetingId + "_" + "AUDIO";
+    return userId + "_" + "THUMBNAIL";
   }
 }
 
 //Function to save the final consolidated files to the s3 bucket.
-async function saveToS3(finalFile: Blob, type: string, fileName: string) {
+async function saveToS3(
+  finalFile: Blob,
+  type: string,
+  fileName: string,
+  meetingId: string,
+  userId: string
+) {
   try {
     // check finalFile size if it is less than 10MB
     if (finalFile.size < 10000000) {
@@ -77,10 +153,10 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
       const response = await axios.post(`/api/getSinglePresignedURL`, {
         fileName: fileName,
         fileType: finalFile.type,
+        meetingId: meetingId,
       });
       const { url } = response.data;
-      console.log("The url is", url);
-      console.log("The uploaded file type is", finalFile.type);
+      console.log("The presigned url is", url);
       // Use the presigned URL to upload the finalFile
       try {
         const uploadResponse = await axios.put(url, finalFile, {
@@ -90,10 +166,24 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
           },
         });
 
-        console.log("Uplaodresponse- ", uploadResponse);
-
         if (uploadResponse.status === 200) {
           console.log("finalFile uploaded successfully.");
+
+          //Add the fileKey of the audio file and the video file to the database table Recording.
+          try {
+            const addFileKeyToDbRes = await axios.post(
+              "/api/dbRecord/addFileURL",
+              {
+                meetingId: meetingId,
+                userId: userId,
+                fileType: type,
+                fileKey: `${meetingId}/${fileName}`,
+              }
+            );
+            console.log("File Key added to database", addFileKeyToDbRes.data);
+          } catch (e) {
+            console.error("Error uploading file data to db", e);
+          }
         } else {
           console.log("Upload failed. the reason is", uploadResponse.data);
         }
@@ -109,6 +199,7 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
       const response = await axios.post(`/api/startMultipartUpload`, {
         fileName: fileName,
         contentType: type,
+        meetingId: meetingId as string,
       });
 
       // get uploadId
@@ -132,6 +223,7 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
         uploadId: uploadId,
         partNumbers: numChunks,
         fileType: finalFile.type,
+        meetingId: meetingId,
       });
 
       let presigned_urls = presignedUrls_response?.data?.presignedUrls;
@@ -181,6 +273,7 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
         fileName: fileName,
         uploadId: uploadId,
         parts: parts,
+        meetingId: meetingId,
       });
 
       console.log("Complete upload- ", complete_upload.data);
@@ -188,6 +281,20 @@ async function saveToS3(finalFile: Blob, type: string, fileName: string) {
       // if upload is successful, alert user
       if (complete_upload.status === 200) {
         console.log("finalFile uploaded successfully.");
+        try {
+          const addFileKeyToDbRes = await axios.post(
+            "/api/dbRecord/addFileURL",
+            {
+              meetingId: meetingId,
+              userId: userId,
+              fileType: type,
+              fileKey: `${meetingId}/${fileName}`,
+            }
+          );
+          console.log("File Key added to database", addFileKeyToDbRes.data);
+        } catch (e) {
+          console.error("Error uploading file data to db", e);
+        }
       } else {
         alert("Upload failed.");
       }
@@ -259,6 +366,6 @@ self.onmessage = (msg) => {
     saveChunk(roomId, type, chunk);
   }
   if (event == "consolidateFile") {
-    consolidateFiles(roomId);
+    consolidateFiles(roomId, msg.data.userId);
   }
 };
