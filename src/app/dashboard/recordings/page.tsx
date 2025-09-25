@@ -1,8 +1,9 @@
 "use client";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 interface videoFileUrl {
   meetingId: string;
@@ -11,6 +12,7 @@ interface videoFileUrl {
 
 export default function Recordings() {
   const { isLoaded, user } = useUser();
+  const router = useRouter();
   const [userThumbnails, setUserThumbnails] = useState<videoFileUrl[] | null>(
     null
   );
@@ -43,13 +45,13 @@ export default function Recordings() {
               return (
                 <Card
                   key={recording.meetingId}
-                  className="w-[95%] h-64 rounded-2xl py-0 px-0 overflow-hidden gap-2 hover:opacity-50"
+                  className="w-[95%] h-64 rounded-2xl py-0 px-0 overflow-hidden gap-2 "
                   onClick={() => {
                     console.log("Download requested");
                   }}
                 >
                   <div className="flex flex-col w-full h-full">
-                    <div className="flex-2/3">
+                    <div className="flex-2/3 hover:opacity-50">
                       <img
                         src={recording.thumbnailUrl}
                         className="w-full h-52 object-cover"
@@ -57,7 +59,15 @@ export default function Recordings() {
                       />
                     </div>
                     <div className="flex-2/3">
-                      <Button size={"lg"} className="w-full h-full">
+                      <Button
+                        size={"lg"}
+                        className="w-full h-full"
+                        onClick={() => {
+                          router.push(
+                            `/dashboard/recordings/${recording.meetingId}`
+                          );
+                        }}
+                      >
                         Download Pod Assets
                       </Button>
                     </div>
