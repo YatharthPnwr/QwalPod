@@ -37,52 +37,85 @@ function consolidateFiles(meetingId: string, userId: string) {
   getRequest.onsuccess = (msg) => {
     const audioChunks = getRequest.result.audioChunks;
     const videoChunks = getRequest.result.videoChunks;
-    const consolidatedVideo = new Blob(videoChunks, {
-      type: "video/webm;codecs=vp8",
-    });
-    const consolidatedAudio = new Blob(audioChunks, {
-      type: "audio/webm;codecs=opus",
-    });
-    const object = getRequest.result;
-    object.FinalVideo = consolidatedVideo;
-    object.FinalAudio = consolidatedAudio;
+    const screenChunks = getRequest.result.screenChunks;
 
-    //  Save back updated data
-    const putRequest = store.put(object);
-
-    putRequest.onsuccess = async () => {
-      console.log(
-        "The saving of consolidated files is done, proceeding to upload the videos to the cloud"
-      );
-      const finalVideoFileName = getFinalFileName("VIDEO", userId);
-      const finalAudioFileName = getFinalFileName("AUDIO", userId);
-      const thumbnailFileName = getFinalFileName("THUMBNAIL", userId);
-      const thumbnail = await generateThumbnail(consolidatedVideo);
-      await saveToS3(
-        thumbnail,
-        "THUMBNAIL",
-        thumbnailFileName,
-        meetingId,
-        userId
-      );
-      await saveToS3(
-        consolidatedVideo,
-        "VIDEO",
-        finalVideoFileName,
-        meetingId,
-        userId
-      );
-      await saveToS3(
-        consolidatedAudio,
-        "AUDIO",
-        finalAudioFileName,
-        meetingId,
-        userId
-      );
-    };
-    putRequest.onerror = (msg) => {
-      console.error((msg.target as IDBOpenDBRequest).error);
-    };
+    if (screenChunks) {
+      const object = getRequest.result;
+      const consolidatedScreen = new Blob(screenChunks, {
+        type: "video/webm;codecs=vp8,opus",
+      });
+      object.consolidatedScreen = consolidatedScreen;
+      //  Save back updated data
+      const putRequest = store.put(object);
+      putRequest.onsuccess = async () => {
+        console.log("Consolidated screen files, uploading to cloud");
+        const screenShareFileName = getFinalFileName("SCREEN", userId);
+        await saveToS3(
+          consolidatedScreen,
+          "SCREEN",
+          screenShareFileName,
+          meetingId,
+          userId
+        );
+      };
+      putRequest.onerror = (msg) => {
+        console.error((msg.target as IDBOpenDBRequest).error);
+      };
+    }
+    if (videoChunks) {
+      const object = getRequest.result;
+      const consolidatedVideo = new Blob(videoChunks, {
+        type: "video/webm;codecs=vp8",
+      });
+      object.FinalVideo = consolidatedVideo;
+      const putRequest = store.put(object);
+      putRequest.onsuccess = async () => {
+        console.log("Consolidated video file, uploading to cloud");
+        const finalVideoFileName = getFinalFileName("VIDEO", userId);
+        await saveToS3(
+          consolidatedVideo,
+          "VIDEO",
+          finalVideoFileName,
+          meetingId,
+          userId
+        );
+        const thumbnailFileName = getFinalFileName("THUMBNAIL", userId);
+        const thumbnail = await generateThumbnail(consolidatedVideo);
+        console.log("Consolidated thumbnail file, uploading to cloud");
+        await saveToS3(
+          thumbnail,
+          "THUMBNAIL",
+          thumbnailFileName,
+          meetingId,
+          userId
+        );
+      };
+      putRequest.onerror = (msg) => {
+        console.error((msg.target as IDBOpenDBRequest).error);
+      };
+    }
+    if (audioChunks) {
+      const object = getRequest.result;
+      const consolidatedAudio = new Blob(audioChunks, {
+        type: "audio/webm;codecs=opus",
+      });
+      object.FinalAudio = consolidatedAudio;
+      const putRequest = store.put(object);
+      putRequest.onsuccess = async () => {
+        console.log("Consolidated audio file, uploading to cloud");
+        const finalAudioFileName = getFinalFileName("AUDIO", userId);
+        await saveToS3(
+          consolidatedAudio,
+          "AUDIO",
+          finalAudioFileName,
+          meetingId,
+          userId
+        );
+      };
+      putRequest.onerror = (msg) => {
+        console.error((msg.target as IDBOpenDBRequest).error);
+      };
+    }
   };
 }
 
@@ -126,15 +159,17 @@ async function generateThumbnail(file: Blob) {
 
 //Function to get the final video file name
 function getFinalFileName(
-  type: "VIDEO" | "AUDIO" | "THUMBNAIL",
+  type: "VIDEO" | "AUDIO" | "THUMBNAIL" | "SCREEN",
   userId: string
 ): string {
   if (type == "VIDEO") {
     return userId + "_" + "VIDEO";
   } else if (type == "AUDIO") {
     return userId + "_" + "AUDIO";
-  } else {
+  } else if (type == "THUMBNAIL") {
     return userId + "_" + "THUMBNAIL";
+  } else {
+    return userId + "_" + "SCREEN";
   }
 }
 
@@ -147,6 +182,10 @@ async function saveToS3(
   userId: string
 ) {
   try {
+    if (finalFile.size <= 0) {
+      console.log("THE FILE SIZE IS 0, skipping");
+      return;
+    }
     // check finalFile size if it is less than 10MB
     if (finalFile.size < 10000000) {
       // Call your API to get the presigned URL
@@ -305,7 +344,11 @@ async function saveToS3(
 }
 
 // Save incoming audio/video chunk
-function saveChunk(meetingId: string, type: "audio" | "video", chunk: Blob) {
+function saveChunk(
+  meetingId: string,
+  type: "audio" | "video" | "screen",
+  chunk: Blob
+) {
   if (!dbInstance) {
     console.error("DB not ready yet!");
     return;
@@ -319,6 +362,7 @@ function saveChunk(meetingId: string, type: "audio" | "video", chunk: Blob) {
       meetingId: string;
       audioChunks: Blob[];
       videoChunks: Blob[];
+      screenChunks: Blob[];
     }
 
     let data: MeetingData | undefined = getRequest.result;
@@ -330,15 +374,19 @@ function saveChunk(meetingId: string, type: "audio" | "video", chunk: Blob) {
         meetingId,
         audioChunks: [],
         videoChunks: [],
+        screenChunks: [],
       };
     }
 
     //  Append chunk to proper array
     if (type === "audio") {
       data.audioChunks.push(chunk);
-    } else {
+    } else if (type == "video") {
       console.log("Trying to save the video chunk ", chunk);
       data.videoChunks.push(chunk);
+    } else {
+      console.log("Trying to save the screenChunk");
+      data.screenChunks.push(chunk);
     }
 
     //  Save back updated data

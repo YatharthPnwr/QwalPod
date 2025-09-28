@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   };
 
   // add extra params if content type is video
-  if (contentType == "VIDEO") {
+  if (contentType == "VIDEO" || contentType == "SCREEN") {
     params.ContentDisposition = "inline";
     params.ContentType = "video/webm";
   }

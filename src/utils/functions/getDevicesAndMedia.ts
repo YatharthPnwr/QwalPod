@@ -14,18 +14,25 @@ export async function getDisplayMedia() {
 export async function startScreenShare(
   // here the full peer list will come
   peerConnectionInfo: React.RefObject<peerConnectionInfo[]>,
-  deviceTypeToID: React.RefObject<Map<string, string>>
+  deviceTypeToID: React.RefObject<Map<string, string>>,
+  screenShareRecorderRef: React.RefObject<MediaRecorder | null>,
+  webWorkerRef: React.RefObject<Worker | null>,
+  userId: string | undefined
 ) {
   try {
+    if (!userId) {
+      console.log("NO USER ID FOUND RETURNING");
+      return;
+    }
     const displayMedia = await navigator.mediaDevices.getDisplayMedia({
       audio: true,
       video: true,
     });
+
+    console.log("The displayMedia is", displayMedia);
+    screenShareRecorderRef.current = new MediaRecorder(displayMedia);
+    handleScreenShareRecording(screenShareRecorderRef, webWorkerRef, userId);
     deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
-    console.log(
-      "Added screen share to map Final state is: ",
-      Object.fromEntries(deviceTypeToID.current)
-    );
     peerConnectionInfo.current.forEach((peer) => {
       const pc = peer.peerConnection;
       displayMedia.getTracks().forEach((track) => {
@@ -125,6 +132,41 @@ function handleRecording(
   };
   audioRecorderRef.current.start(5000);
   videoRecorderRef.current.start(5000);
+}
+
+function handleScreenShareRecording(
+  screenShareRef: React.RefObject<MediaRecorder | null>,
+  webWorkerRef: React.RefObject<Worker | null>,
+  userId: string
+) {
+  if (!webWorkerRef.current) {
+    console.log("NO web worker found returning");
+    return;
+  }
+  if (!screenShareRef.current) {
+    console.log("no screen share recorder found returning");
+    return;
+  }
+  console.log("Handling screen share");
+  screenShareRef.current.ondataavailable = (e) => {
+    console.log("screen data avaliable");
+    if (!webWorkerRef.current) {
+      console.log("NO web worker found returning");
+      return;
+    }
+    webWorkerRef.current.postMessage({
+      roomId: localStorage.getItem("roomId"),
+      userId: userId,
+      event: "saveChunk",
+      type: "screen",
+      datatype: "blob",
+      chunk: e.data,
+    });
+  };
+  screenShareRef.current.start(5000);
+  screenShareRef.current.onstop = () => {
+    console.log("screen sharing stopped stopped");
+  };
 }
 
 interface updateMediaInputs {

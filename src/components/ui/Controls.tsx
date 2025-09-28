@@ -33,6 +33,7 @@ interface ControlsInput {
   deviceTypeToID: React.RefObject<Map<string, string>>;
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
+  screenShareRecorderRef: React.RefObject<MediaRecorder | null>;
   webWorkerRef: React.RefObject<Worker | null>;
   userId: string | undefined;
 }
@@ -320,7 +321,10 @@ export default function Controls(props: ControlsInput) {
             onClick={async () => {
               await startScreenShare(
                 props.peerConnectionInfo,
-                props.deviceTypeToID
+                props.deviceTypeToID,
+                props.screenShareRecorderRef,
+                props.webWorkerRef,
+                props.userId
               );
             }}
           >

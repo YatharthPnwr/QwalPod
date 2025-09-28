@@ -27,6 +27,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
 
   const audioRecorder = useRef<MediaRecorder | null>(null);
   const videoRecorder = useRef<MediaRecorder | null>(null);
+  const screenShareRecorderRef = useRef<MediaRecorder | null>(null);
   const webWorkerRef = useRef<Worker | null>(null);
 
   const [audioInputOptions, setAudioInputOptions] =
@@ -88,7 +89,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
       // @note - This will be fixed when we have the id always.
 
       if (!ws.current) {
-        //Someone joined from the link
         //This may be sending multiple websocket msgs to join room.
         //The userId will not be defined here if the user joins
         ws.current = new WebSocket("ws://localhost:3000/api/ws");
@@ -196,7 +196,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           await new Promise((resolve) => setTimeout(resolve, 5000));
           //Do not send a connection req to everyone in the array, rather.
           //The new person that joined, should only initialte the calls.
-          console.log("After 5 seconds");
           const existingUsers = res.existingUsers;
           const currentUserId = user.id;
           //Check if for the new existing users array, the diff between the existing users,
@@ -873,6 +872,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           audioRecorderRef={audioRecorder}
           videoRecorderRef={videoRecorder}
           userId={user?.id}
+          screenShareRecorderRef={screenShareRecorderRef}
         />
       </div>
     </div>
