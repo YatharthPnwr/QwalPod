@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
         audioFileKey: true,
         videoFileKey: true,
         thumbnailFileKey: true,
+        screenShareFileKey: true,
       },
       where: {
         meetingId: body.meetingId,

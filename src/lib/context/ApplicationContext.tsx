@@ -9,11 +9,11 @@ import {
   RefObject,
   useRef,
 } from "react";
-import { useEffect } from "react";
 interface applicationContextType {
   userRole: string;
   setUserRole: Dispatch<SetStateAction<string>>;
   ws: RefObject<WebSocket | null>;
+  webWorkerRef: RefObject<Worker | null>;
 }
 
 const applicationContext = createContext<applicationContextType | undefined>(
@@ -23,6 +23,7 @@ const applicationContext = createContext<applicationContextType | undefined>(
 export function UserRoleProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState("");
   const ws = useRef<WebSocket | null>(null);
+  const webWorkerRef = useRef<Worker | null>(null);
 
   return (
     <applicationContext.Provider
@@ -30,6 +31,7 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
         userRole,
         setUserRole,
         ws,
+        webWorkerRef,
       }}
     >
       {children}

@@ -13,6 +13,8 @@ import {
   switchMedia,
 } from "@/utils/functions/getDevicesAndMedia";
 import { useMediaPredicate } from "react-media-hook";
+import { useRouter } from "next/navigation";
+import { useApplicationContext } from "@/lib/context/ApplicationContext";
 interface peerConnectionInfo {
   to: string;
   peerConnection: RTCPeerConnection;
@@ -34,7 +36,7 @@ interface ControlsInput {
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
   screenShareRecorderRef: React.RefObject<MediaRecorder | null>;
-  webWorkerRef: React.RefObject<Worker | null>;
+  // webWorkerRef: React.RefObject<Worker | null>;
   userId: string | undefined;
 }
 export default function Controls(props: ControlsInput) {
@@ -50,6 +52,8 @@ export default function Controls(props: ControlsInput) {
   const isLg = useMediaPredicate("(min-width: 1024px)"); // ≥1024px
   const isXl = useMediaPredicate("(min-width: 1280px)");
   const is2xl = useMediaPredicate("(min-width: 1536px)"); // ≥1536px
+  const router = useRouter();
+  const { userRole, ws, webWorkerRef } = useApplicationContext();
 
   //get the avaliable connected devices.
   async function getConnectedDevices(type: string) {
@@ -198,7 +202,7 @@ export default function Controls(props: ControlsInput) {
                           peerConnectionInfo: props.peerConnectionInfo,
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
-                          webWorkerRef: props.webWorkerRef,
+                          webWorkerRef: webWorkerRef,
                           userId: props.userId,
                         });
                       }}
@@ -303,7 +307,7 @@ export default function Controls(props: ControlsInput) {
                           peerConnectionInfo: props.peerConnectionInfo,
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
-                          webWorkerRef: props.webWorkerRef,
+                          webWorkerRef: webWorkerRef,
                           userId: props.userId,
                         });
                       }}
@@ -323,7 +327,7 @@ export default function Controls(props: ControlsInput) {
                 props.peerConnectionInfo,
                 props.deviceTypeToID,
                 props.screenShareRecorderRef,
-                props.webWorkerRef,
+                webWorkerRef,
                 props.userId
               );
             }}
@@ -341,7 +345,10 @@ export default function Controls(props: ControlsInput) {
               props.audioRecorderRef.current?.stop();
               props.videoRecorderRef.current?.stop();
               //Send the msg to store the file in the cloud
-              props.webWorkerRef.current?.postMessage({
+              router.push(
+                `/podcast/uploading/${localStorage.getItem("roomId")}`
+              );
+              webWorkerRef.current?.postMessage({
                 event: "consolidateFile",
                 userId: props.userId,
                 roomId: localStorage.getItem("roomId"),
@@ -353,6 +360,11 @@ export default function Controls(props: ControlsInput) {
               size={
                 is2xl ? 35 : isXl ? 30 : isLg ? 30 : isMd ? 25 : isSm ? 25 : 20
               }
+              //Close the connection.
+              //loading screen
+              onClick={() => {
+                //        localStorage.setItem("roomId", roomId);
+              }}
             />
           </div>
         </div>

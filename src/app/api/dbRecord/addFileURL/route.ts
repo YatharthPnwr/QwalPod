@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     audioFileKey?: string;
     videoFileKey?: string;
     thumbnailFileKey?: string;
+    screenShareFileKey?: string;
   } = {
     meetingId,
     userId,
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
     params.videoFileKey = fileKey;
   } else if (fileType === "THUMBNAIL") {
     params.thumbnailFileKey = fileKey;
+  } else if (fileType === "SCREEN") {
+    params.screenShareFileKey = fileKey;
   } else {
     return NextResponse.json({ msg: "Invalid FileType" }, { status: 400 });
   }
@@ -60,11 +63,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Mark as COMPLETED only if all three keys are present
+    // Mark as COMPLETED only if all four keys are present
     if (
       updatedRecord?.audioFileKey &&
       updatedRecord?.videoFileKey &&
-      updatedRecord?.thumbnailFileKey
+      updatedRecord?.thumbnailFileKey &&
+      updatedRecord?.screenShareFileKey
     ) {
       await prisma.recordings.update({
         where: {

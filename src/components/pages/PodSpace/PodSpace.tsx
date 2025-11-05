@@ -12,7 +12,7 @@ import { useUser } from "@clerk/nextjs";
 import axios from "axios";
 export default function PodSpacePage({ userRole }: { userRole: string }) {
   const { isLoaded, user } = useUser();
-  const { ws, setUserRole } = useApplicationContext();
+  const { ws, setUserRole, webWorkerRef } = useApplicationContext();
   // const peerConnection = useRef<RTCPeerConnection>(null);
   const deviceTypeToID = useRef<Map<string, string>>(new Map());
   const remoteDeviceTypeToId = useRef<Map<string, string>>(new Map());
@@ -28,7 +28,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const audioRecorder = useRef<MediaRecorder | null>(null);
   const videoRecorder = useRef<MediaRecorder | null>(null);
   const screenShareRecorderRef = useRef<MediaRecorder | null>(null);
-  const webWorkerRef = useRef<Worker | null>(null);
+  // const webWorkerRef = useRef<Worker | null>(null);
 
   const [audioInputOptions, setAudioInputOptions] =
     useState<MediaDeviceInfo[]>();
@@ -86,8 +86,6 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   useEffect(() => {
     //Dont use this method. ALways joinroom by entering the id. in the text box.
     if (isLoaded && user) {
-      // @note - This will be fixed when we have the id always.
-
       if (!ws.current) {
         //This may be sending multiple websocket msgs to join room.
         //The userId will not be defined here if the user joins
@@ -868,7 +866,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
           srcAudioStream={srcAudioStream}
           setSrcAudioStream={setSrcAudioStream}
           deviceTypeToID={deviceTypeToID}
-          webWorkerRef={webWorkerRef}
+          // webWorkerRef={webWorkerRef}
           audioRecorderRef={audioRecorder}
           videoRecorderRef={videoRecorder}
           userId={user?.id}

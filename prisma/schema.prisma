@@ -20,13 +20,14 @@ enum UploadStatus {
 }
 
 model Recordings {
-  id               String       @id @default(uuid())
-  meetingId        String
-  userId           String
-  audioFileKey     String?
-  videoFileKey     String?
-  thumbnailFileKey String?
-  status           UploadStatus @default(PENDING)
+  id                 String       @id @default(uuid())
+  meetingId          String
+  userId             String
+  audioFileKey       String?
+  videoFileKey       String?
+  thumbnailFileKey   String?
+  screenShareFileKey String?
+  status             UploadStatus @default(PENDING)
 
   @@unique([userId, meetingId])
 }

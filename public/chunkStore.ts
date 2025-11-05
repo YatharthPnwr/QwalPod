@@ -26,18 +26,66 @@ dbRequest.onerror = () => {
   console.error("[Worker] Failed to open IndexedDB :", dbRequest.error);
 };
 
+function getUploadFileTypes(meetingId: string) {
+  if (!dbInstance) {
+    console.error("DB not ready yet! ");
+    return;
+  }
+  //Get the type of files visible
+  const tx1 = dbInstance.transaction("Recordings", "readwrite");
+  const store1 = tx1.objectStore("Recordings");
+  console.log("The meetingId is", meetingId);
+  const getReq = store1.get(meetingId);
+  getReq.onsuccess = (msg) => {
+    const audioChunks: Blob[] = getReq.result.audioChunks;
+    const videoChunks: Blob[] = getReq.result.videoChunks;
+    const screenChunks: Blob[] = getReq.result.screenChunks;
+    const uploadFileTypes = [];
+    if (audioChunks.length > 0) {
+      uploadFileTypes.push("audio");
+    }
+    if (videoChunks.length > 0) {
+      uploadFileTypes.push("video");
+    }
+    if (screenChunks.length > 0) {
+      uploadFileTypes.push("screen");
+    }
+    console.log("Sending the types of files", uploadFileTypes);
+    postMessage({
+      event: "fileTypesToUpload",
+      data: uploadFileTypes,
+    });
+  };
+}
+
 function consolidateFiles(meetingId: string, userId: string) {
   if (!dbInstance) {
     console.error("DB not ready yet! ");
     return;
   }
+
   const tx = dbInstance.transaction("Recordings", "readwrite");
   const store = tx.objectStore("Recordings");
   const getRequest = store.get(meetingId);
   getRequest.onsuccess = (msg) => {
-    const audioChunks = getRequest.result.audioChunks;
-    const videoChunks = getRequest.result.videoChunks;
-    const screenChunks = getRequest.result.screenChunks;
+    const audioChunks: Blob[] = getRequest.result.audioChunks;
+    const videoChunks: Blob[] = getRequest.result.videoChunks;
+    const screenChunks: Blob[] = getRequest.result.screenChunks;
+    // const uploadFileTypes = [];
+    // if (audioChunks.length > 0) {
+    //   uploadFileTypes.push("audio");
+    // }
+    // if (videoChunks.length > 0) {
+    //   uploadFileTypes.push("video");
+    // }
+    // if (screenChunks.length > 0) {
+    //   uploadFileTypes.push("screen");
+    // }
+    // console.log("Sending the types of files", uploadFileTypes);
+    // postMessage({
+    //   event: "fileTypesToUpload",
+    //   data: uploadFileTypes,
+    // });
 
     if (screenChunks) {
       const object = getRequest.result;
@@ -206,7 +254,7 @@ async function saveToS3(
         });
 
         if (uploadResponse.status === 200) {
-          console.log("finalFile uploaded successfully.");
+          console.log(`${type} uploaded successfully.`);
 
           //Add the fileKey of the audio file and the video file to the database table Recording.
           try {
@@ -220,6 +268,13 @@ async function saveToS3(
               }
             );
             console.log("File Key added to database", addFileKeyToDbRes.data);
+            console.log(
+              `sending messages of COMPLETION OF ${type} FILE UPLOADS`
+            );
+            postMessage({
+              event: "FileUploadSuccessful",
+              fileType: type.toLowerCase(),
+            });
           } catch (e) {
             console.error("Error uploading file data to db", e);
           }
@@ -319,7 +374,11 @@ async function saveToS3(
 
       // if upload is successful, alert user
       if (complete_upload.status === 200) {
-        console.log("finalFile uploaded successfully.");
+        console.log(`sending messages of COMPLETION OF ${type} FILE UPLOADS`);
+        postMessage({
+          event: "FileUploadSuccessful",
+          fileType: type.toLowerCase(),
+        });
         try {
           const addFileKeyToDbRes = await axios.post(
             "/api/dbRecord/addFileURL",
@@ -414,6 +473,10 @@ self.onmessage = (msg) => {
     saveChunk(roomId, type, chunk);
   }
   if (event == "consolidateFile") {
+    console.log("Received the consolidate files request from the FE");
     consolidateFiles(roomId, msg.data.userId);
+  }
+  if (event == "getUploadFileTypes") {
+    getUploadFileTypes(roomId);
   }
 };
