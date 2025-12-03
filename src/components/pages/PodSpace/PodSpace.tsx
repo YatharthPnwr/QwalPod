@@ -10,6 +10,7 @@ import getUserDevices, {
 } from "../../../utils/functions/getDevicesAndMedia";
 import { useUser } from "@clerk/nextjs";
 import axios from "axios";
+import { useRouter } from "next/navigation";
 export default function PodSpacePage({ userRole }: { userRole: string }) {
   const { isLoaded, user } = useUser();
   const { ws, setUserRole, webWorkerRef } = useApplicationContext();
@@ -40,6 +41,7 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   const [peerStreamInfo, setPeerStreamInfo] = useState<
     Record<string, peerStreamInfo>
   >({});
+  const router = useRouter();
 
   const updatePeerStream = (
     peerId: string,
@@ -84,26 +86,10 @@ export default function PodSpacePage({ userRole }: { userRole: string }) {
   }
 
   useEffect(() => {
-    //Dont use this method. ALways joinroom by entering the id. in the text box.
     if (isLoaded && user) {
       if (!ws.current) {
-        //This may be sending multiple websocket msgs to join room.
-        //The userId will not be defined here if the user joins
-        ws.current = new WebSocket("ws://localhost:3000/api/ws");
-        console.log("There was no websocket found !");
-        const wsConnMan = new WebSocketConnHandle(ws.current, 1800);
-        wsConnMan.waitForConnection(() => {
-          ws.current?.send(
-            JSON.stringify({
-              event: "joinRoom",
-              data: {
-                roomId: localStorage.getItem("roomId"),
-                //This wont be defined here. So join by entering the roomId
-                userId: user.id,
-              },
-            })
-          );
-        });
+        router.push("/dashboard");
+        return;
       } else {
         ws.current?.send(
           JSON.stringify({

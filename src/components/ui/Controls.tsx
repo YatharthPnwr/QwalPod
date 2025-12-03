@@ -342,8 +342,15 @@ export default function Controls(props: ControlsInput) {
             className="LeavePod rounded-2xl w-full h-3/4 md:w-2/3 flex items-center justify-center bg-red-500"
             onClick={() => {
               //stop the recording
-              props.audioRecorderRef.current?.stop();
               props.videoRecorderRef.current?.stop();
+              //release the mic and the camera
+              props.srcAudioStream?.getTracks().forEach((track) => {
+                track.stop();
+              });
+              props.srcVideoStream?.getTracks().forEach((track) => {
+                track.stop();
+              });
+              props;
               //Send the msg to store the file in the cloud
               router.push(
                 `/podcast/uploading/${localStorage.getItem("roomId")}`

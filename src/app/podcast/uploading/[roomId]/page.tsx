@@ -2,7 +2,6 @@
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useRef } from "react";
 
 export default function Upload() {
   const { userRole, ws, webWorkerRef } = useApplicationContext();

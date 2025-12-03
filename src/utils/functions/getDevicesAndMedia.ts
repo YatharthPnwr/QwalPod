@@ -92,14 +92,24 @@ function handleRecording(
     return;
   }
   if (!webWorkerRef.current) {
-    console.log("NO web worker found returning");
-    return;
+    console.log("NO web worker found, creating a new");
+    //create a new worker
+    const workerScript = new Worker(
+      new URL("../../../public/chunkStore", import.meta.url)
+    );
+    webWorkerRef.current = workerScript;
+    // return;
   }
   audioRecorderRef.current.ondataavailable = (e) => {
     //send the blob to the worker script.
     if (!webWorkerRef.current) {
-      console.log("NO web worker found returning");
-      return;
+      console.log("NO web worker found, creating a new");
+      //create a new worker
+      const workerScript = new Worker(
+        new URL("../../../public/chunkStore", import.meta.url)
+      );
+      webWorkerRef.current = workerScript;
+      // return;
     }
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
@@ -112,8 +122,13 @@ function handleRecording(
   };
   videoRecorderRef.current.ondataavailable = (e) => {
     if (!webWorkerRef.current) {
-      console.log("NO web worker found returning");
-      return;
+      console.log("NO web worker found, creating a new");
+      //create a new worker
+      const workerScript = new Worker(
+        new URL("../../../public/chunkStore", import.meta.url)
+      );
+      webWorkerRef.current = workerScript;
+      // return;
     }
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
@@ -140,8 +155,13 @@ function handleScreenShareRecording(
   userId: string
 ) {
   if (!webWorkerRef.current) {
-    console.log("NO web worker found returning");
-    return;
+    console.log("NO web worker found, creating a new");
+    //create a new worker
+    const workerScript = new Worker(
+      new URL("../../../public/chunkStore", import.meta.url)
+    );
+    webWorkerRef.current = workerScript;
+    // return;
   }
   if (!screenShareRef.current) {
     console.log("no screen share recorder found returning");
@@ -151,8 +171,13 @@ function handleScreenShareRecording(
   screenShareRef.current.ondataavailable = (e) => {
     console.log("screen data avaliable");
     if (!webWorkerRef.current) {
-      console.log("NO web worker found returning");
-      return;
+      console.log("NO web worker found, creating a new");
+      //create a new worker
+      const workerScript = new Worker(
+        new URL("../../../public/chunkStore", import.meta.url)
+      );
+      webWorkerRef.current = workerScript;
+      // return;
     }
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
