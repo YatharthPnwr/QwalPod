@@ -5,6 +5,7 @@ import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import { useEffect } from "react";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import { useRouter } from "next/navigation";
+
 export default function Dashboard() {
   const roomIdRef = useRef<HTMLInputElement>(null);
   const { userRole, setUserRole, ws } = useApplicationContext();
