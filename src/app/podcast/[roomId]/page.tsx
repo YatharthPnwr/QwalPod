@@ -115,74 +115,14 @@ export default function PodSpacePage() {
           deviceTypeToID.current.set(audioStream.id, "peerAudio");
           deviceTypeToID.current.set(videoStream.id, "peerVideo");
         }
+        const roomId = params.roomId;
         if (!ws.current) {
           console.log("JOINED FROM LINK");
           // user is logged in, but does not have a ws connection, meaning they joined from the link.
           // Create a new ws connection, and send the join event.
-          const roomId = params.roomId;
-
           ws.current = new WebSocket("wss://www.qwalpod.live/api/ws");
-          //send the join room.
-          const wsHandler = new WebSocketConnHandle(ws.current, 500);
-          wsHandler.waitForConnection(() => {
-            ws.current?.send(
-              JSON.stringify({
-                event: "joinRoom",
-                data: {
-                  roomId: roomId,
-                  userId: user.id,
-                },
-              })
-            );
-          });
-        } else {
-          ws.current?.send(
-            JSON.stringify({
-              event: "joinRoom",
-              data: {
-                roomId: localStorage.getItem("roomId"),
-                userId: user.id,
-              },
-            })
-          );
         }
-        //add the details of the user to the users table.
-        try {
-          const res = await axios.post(
-            "https://www.qwalpod.live/api/dbRecord/addUserToRoom",
-            {
-              meetingId: localStorage.getItem("roomId") as string,
-              userId: user.id,
-            }
-          );
-          console.log(
-            "Successfully added the user to the meeting record",
-            res.data
-          );
-        } catch (e) {
-          console.log("Error occured while storing to db", e);
-        }
-
-        //function to process the pending ice Candidates
-        const processPendingIceCandidates = async (
-          targetPeer: peerConnectionInfo
-        ) => {
-          if (targetPeer.pendingIceCandidates.length > 0) {
-            for (const candidate of targetPeer.pendingIceCandidates) {
-              try {
-                await targetPeer.peerConnection.addIceCandidate(candidate);
-              } catch (e) {
-                console.error("Error adding buffered ICE candidate:", e);
-              }
-            }
-
-            // Clear the buffer
-            targetPeer.pendingIceCandidates = [];
-          }
-        };
-
-        //Get all the existing users in room.
-
+        //setup handlers
         ws.current.onmessage = async (event) => {
           const res = JSON.parse(event.data.toString());
           if (res.type === "error") {
@@ -777,6 +717,54 @@ export default function PodSpacePage() {
                 new RTCIceCandidate(remoteIceCandidate)
               );
             }
+          }
+        };
+        //send the join room.
+        const wsHandler = new WebSocketConnHandle(ws.current, 500);
+        wsHandler.waitForConnection(() => {
+          ws.current?.send(
+            JSON.stringify({
+              event: "joinRoom",
+              data: {
+                roomId: roomId,
+                userId: user.id,
+              },
+            })
+          );
+        });
+
+        //add the details of the user to the users table.
+        try {
+          const res = await axios.post(
+            "https://www.qwalpod.live/api/dbRecord/addUserToRoom",
+            {
+              meetingId: localStorage.getItem("roomId") as string,
+              userId: user.id,
+            }
+          );
+          console.log(
+            "Successfully added the user to the meeting record",
+            res.data
+          );
+        } catch (e) {
+          console.log("Error occured while storing to db", e);
+        }
+
+        //function to process the pending ice Candidates
+        const processPendingIceCandidates = async (
+          targetPeer: peerConnectionInfo
+        ) => {
+          if (targetPeer.pendingIceCandidates.length > 0) {
+            for (const candidate of targetPeer.pendingIceCandidates) {
+              try {
+                await targetPeer.peerConnection.addIceCandidate(candidate);
+              } catch (e) {
+                console.error("Error adding buffered ICE candidate:", e);
+              }
+            }
+
+            // Clear the buffer
+            targetPeer.pendingIceCandidates = [];
           }
         };
       };
