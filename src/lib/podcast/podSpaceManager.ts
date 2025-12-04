@@ -113,8 +113,7 @@ export class podSpaceManager {
     offer: RTCSessionDescriptionInit,
     streamMetaData: Map<string, string>,
     fromId: string,
-    toId: string,
-    ws: WSWebSocket
+    toId: string
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
       return room.roomId === roomId;
@@ -162,8 +161,7 @@ export class podSpaceManager {
     answer: string,
     fromId: string,
     toId: string,
-    streamMetaData: Map<string, string>,
-    ws: WSWebSocket
+    streamMetaData: Map<string, string>
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
       return room.roomId === roomId;
@@ -217,8 +215,7 @@ export class podSpaceManager {
     roomId: string,
     iceCandidate: string,
     fromId: string,
-    toId: string,
-    ws: WSWebSocket
+    toId: string
   ): Promise<WsResponse> {
     const currentPod = this.rooms.find((room) => {
       return room.roomId === roomId;

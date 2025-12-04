@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
   const { meetingId, userId } = body;
   try {
-    const res = await prisma.recordings.create({
+    await prisma.recordings.create({
       data: {
         userId: userId,
         meetingId: meetingId,
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         msg: "Error adding user to the table",
+        error: e,
       },
       { status: 500 }
     );

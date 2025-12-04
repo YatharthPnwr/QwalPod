@@ -9,16 +9,15 @@ import getUserDevices, {
 } from "../../../utils/functions/getDevicesAndMedia";
 import { useUser } from "@clerk/nextjs";
 import axios from "axios";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
   const params = useParams();
-  const { userRole, setUserRole, ws, webWorkerRef } = useApplicationContext();
+  const { ws, webWorkerRef } = useApplicationContext();
   // const peerConnection = useRef<RTCPeerConnection>(null);
   const deviceTypeToID = useRef<Map<string, string>>(new Map());
-  const remoteDeviceTypeToId = useRef<Map<string, string>>(new Map());
   const [srcAudioStream, setSrcAudioStream] = useState<MediaStream | undefined>(
     undefined
   );
@@ -43,7 +42,6 @@ export default function PodSpacePage() {
   const [peerStreamInfo, setPeerStreamInfo] = useState<
     Record<string, peerStreamInfo>
   >({});
-  const router = useRouter();
 
   const updatePeerStream = (
     peerId: string,
@@ -136,7 +134,7 @@ export default function PodSpacePage() {
             res.data
           );
         } catch (e) {
-          console.log("Error occured while storing to db");
+          console.log("Error occured while storing to db", e);
         }
       };
       addUserToRecord();
@@ -326,7 +324,7 @@ export default function PodSpacePage() {
               });
 
               //Add all the listeners.
-              newPeerConnection.onconnectionstatechange = (event) => {
+              newPeerConnection.onconnectionstatechange = () => {
                 console.log(newPeerConnection.signalingState);
               };
               //@note - THIS SHOULD BE HITTING BUT IS NOT HITTING.
@@ -620,7 +618,7 @@ export default function PodSpacePage() {
               toId: fromId,
             });
             // Add event listeners
-            newPeerConnection.onconnectionstatechange = (event) => {
+            newPeerConnection.onconnectionstatechange = () => {
               console.log(
                 "Connection state for",
                 fromId,

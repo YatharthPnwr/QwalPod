@@ -5,12 +5,10 @@ import {
   IncomingMessage,
   ServerResponse,
 } from "node:http";
-import { randomUUID } from "node:crypto";
 import next from "next";
 import type { WebSocket as WSWebSocket } from "ws";
 import { WebSocketServer } from "ws";
 import { Socket } from "node:net";
-import { userManager } from "./lib/podcast/userManager";
 import { podSpaceManager } from "./lib/podcast/podSpaceManager";
 
 const nextApp = next({ dev: process.env.NODE_ENV !== "production" });
@@ -24,23 +22,9 @@ nextApp.prepare().then(() => {
   );
 
   const wss = new WebSocketServer({ noServer: true });
-  const userMan = new userManager();
   const podMan = new podSpaceManager();
 
   wss.on("connection", (ws: WSWebSocket) => {
-    const clientId = randomUUID();
-
-    console.log("New client connected");
-    userMan.addUser(clientId, ws);
-
-    //Send the new id to the user
-    ws.send(
-      JSON.stringify({
-        type: "clientIdGenerated",
-        data: clientId,
-      })
-    );
-
     ws.on("message", async function (msg) {
       const { event, data } = JSON.parse(msg.toString());
       //Logic to assign a room to the user.
@@ -67,8 +51,7 @@ nextApp.prepare().then(() => {
             data.offer,
             new Map(Object.entries(data.streamMetaData)),
             data.fromId,
-            data.toId,
-            ws
+            data.toId
           )
         );
         ws.send(res);
@@ -82,8 +65,7 @@ nextApp.prepare().then(() => {
             data.answer,
             data.fromId,
             data.toId,
-            new Map(Object.entries(data.streamMetaData)),
-            ws
+            new Map(Object.entries(data.streamMetaData))
           )
         );
         ws.send(res);
@@ -96,8 +78,7 @@ nextApp.prepare().then(() => {
             data.roomId,
             data.iceCandidate,
             data.fromId,
-            data.toId,
-            ws
+            data.toId
           )
         );
         ws.send(res);

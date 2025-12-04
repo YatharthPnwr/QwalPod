@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       ACL: "public-read",
     };
 
-    let url = await s3.getSignedUrlPromise("putObject", params);
+    const url = await s3.getSignedUrlPromise("putObject", params);
     return NextResponse.json({ url });
   } catch (err) {
     console.log(err);

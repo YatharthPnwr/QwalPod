@@ -1,7 +1,5 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
-import { useUser } from "@clerk/nextjs";
 import {
   SignInButton,
   SignUpButton,
@@ -10,11 +8,11 @@ import {
   UserButton,
 } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 export default function DashBoard() {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
-  const { user, isLoaded } = useUser();
+  // const { theme, setTheme } = useTheme();
+  // const { user, isLoaded } = useUser();
   return (
     <div>
       <div className=" flex items-center justify-center flex-col mb-10">

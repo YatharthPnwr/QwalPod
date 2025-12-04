@@ -1,5 +1,6 @@
 import { s3 } from "@/lib/aws/awsS3Client";
 import { NextRequest, NextResponse } from "next/server";
+
 export async function POST(req: NextRequest) {
   if (req.method !== "POST") {
     return NextResponse.json(
@@ -18,10 +19,10 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  let fileName = body.fileName;
-  let uploadId = body.uploadId;
-  let parts = body.parts;
-  let meetingId = body.meetingId;
+  const fileName = body.fileName;
+  const uploadId = body.uploadId;
+  const parts = body.parts;
+  const meetingId = body.meetingId;
 
   const params = {
     Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME as string,
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     UploadId: uploadId,
 
     MultipartUpload: {
-      Parts: parts.map((part, index) => ({
+      Parts: parts.map((part: { etag: string }, index: number) => ({
         ETag: part.etag,
         PartNumber: index + 1,
       })),

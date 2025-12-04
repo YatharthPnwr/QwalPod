@@ -26,6 +26,9 @@ export async function POST(req: NextRequest) {
       usersAndFileKeys,
     });
   } catch (e) {
-    return NextResponse.json({ msg: "Internal Server error" }, { status: 500 });
+    return NextResponse.json(
+      { msg: "Internal Server error", error: e },
+      { status: 500 }
+    );
   }
 }

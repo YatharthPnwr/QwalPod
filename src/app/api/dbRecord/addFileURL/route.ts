@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const { meetingId, userId, fileType, fileKey } = body;
-  let params: {
+  const params: {
     meetingId: string;
     userId: string;
     audioFileKey?: string;

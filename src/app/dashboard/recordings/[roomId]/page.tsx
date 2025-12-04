@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/card";
-import { Camera, AudioLines, FileVideo, Download } from "lucide-react";
+import { AudioLines, FileVideo, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { AvatarFallback } from "@radix-ui/react-avatar";

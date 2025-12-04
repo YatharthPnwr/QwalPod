@@ -46,14 +46,14 @@ export default function Controls(props: ControlsInput) {
     useState<boolean>(false);
   const [micOn, setMicOn] = useState<boolean>(true);
   const [videoOn, setVideoOn] = useState<boolean>(true);
-  const isXs = useMediaPredicate("(max-width: 639px)"); // <640px
+  // const isXs = useMediaPredicate("(max-width: 639px)"); // <640px
   const isSm = useMediaPredicate("(min-width: 640px)"); // ≥640px
   const isMd = useMediaPredicate("(min-width: 768px)"); // ≥768px
   const isLg = useMediaPredicate("(min-width: 1024px)"); // ≥1024px
   const isXl = useMediaPredicate("(min-width: 1280px)");
   const is2xl = useMediaPredicate("(min-width: 1536px)"); // ≥1536px
   const router = useRouter();
-  const { userRole, ws, webWorkerRef } = useApplicationContext();
+  const { webWorkerRef } = useApplicationContext();
 
   //get the avaliable connected devices.
   async function getConnectedDevices(type: string) {
@@ -350,7 +350,6 @@ export default function Controls(props: ControlsInput) {
               props.srcVideoStream?.getTracks().forEach((track) => {
                 track.stop();
               });
-              props;
               //Send the msg to store the file in the cloud
               router.push(
                 `/podcast/uploading/${localStorage.getItem("roomId")}`

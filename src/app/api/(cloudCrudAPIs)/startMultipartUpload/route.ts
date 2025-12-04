@@ -1,5 +1,6 @@
 import { s3 } from "@/lib/aws/awsS3Client";
 import { NextRequest, NextResponse } from "next/server";
+import { CreateMultipartUploadRequest } from "aws-sdk/clients/s3";
 export async function POST(req: NextRequest) {
   // initialization
   const body = await req.json();
@@ -12,11 +13,11 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  let fileName = body.fileName;
-  let contentType = body.contentType;
-  let meetingId = body.meetingId;
-  const params: any = {
-    Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+  const fileName = body.fileName;
+  const contentType = body.contentType;
+  const meetingId = body.meetingId;
+  const params: CreateMultipartUploadRequest = {
+    Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME as string,
     Key: `${meetingId}/${fileName}`,
   };
 

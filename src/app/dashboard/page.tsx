@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 export default function Dashboard() {
   const roomIdRef = useRef<HTMLInputElement>(null);
-  const { userRole, setUserRole, ws } = useApplicationContext();
+  const { setUserRole, ws } = useApplicationContext();
   const router = useRouter();
 
   useEffect(() => {
@@ -28,11 +28,6 @@ export default function Dashboard() {
         localStorage.setItem("roomId", roomId);
         setUserRole("caller");
         router.push(`/podcast/${roomId}`);
-      }
-      //@NOTE- REMOVE THIS COMPLETELY after completion of migration to clerk ids.
-      else if (res.type == "clientIdGenerated") {
-        const clientId = res.data;
-        //set the client id in the localstorage.
       }
     };
   });

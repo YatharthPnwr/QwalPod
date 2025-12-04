@@ -1,7 +1,7 @@
-import { s3 } from "@/lib/aws/awsS3Client";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
 import { clerkClient } from "@/lib/clerk/clerkClient";
+import { getGETPresignedURL } from "@/utils/functions/getGETPresignedURL";
 
 interface userKeyPath {
   userId: string;
@@ -73,17 +73,9 @@ export async function POST(req: NextRequest) {
     );
     return NextResponse.json({ urls: meetingGetUrls }, { status: 200 });
   } catch (e) {
-    return NextResponse.json({ msg: "Internal Server error" }, { status: 500 });
+    return NextResponse.json(
+      { msg: "Internal Server error", error: e },
+      { status: 500 }
+    );
   }
-}
-
-export function getGETPresignedURL(fileKey: string, fileName: string) {
-  return s3.getSignedUrl("getObject", {
-    Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-    Key: fileKey,
-    ResponseContentDisposition: `attachment; filename=${fileName}_${fileKey
-      .split("_")
-      .pop()}.webm`,
-    Expires: 60 * 60 * 10, //10 hours
-  });
 }

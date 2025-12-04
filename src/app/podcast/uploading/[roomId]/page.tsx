@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Upload() {
-  const { userRole, ws, webWorkerRef } = useApplicationContext();
+  const { webWorkerRef } = useApplicationContext();
   const router = useRouter();
   const params = useParams();
 
