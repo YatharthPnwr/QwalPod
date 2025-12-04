@@ -43,6 +43,24 @@ export default function PodSpacePage() {
     Record<string, peerStreamInfo>
   >({});
 
+  //function to process the pending ice Candidates
+  const processPendingIceCandidates = async (
+    targetPeer: peerConnectionInfo
+  ) => {
+    if (targetPeer.pendingIceCandidates.length > 0) {
+      for (const candidate of targetPeer.pendingIceCandidates) {
+        try {
+          await targetPeer.peerConnection.addIceCandidate(candidate);
+        } catch (e) {
+          console.error("Error adding buffered ICE candidate:", e);
+        }
+      }
+
+      // Clear the buffer
+      targetPeer.pendingIceCandidates = [];
+    }
+  };
+
   const updatePeerStream = (
     peerId: string,
     mediaType: string,
@@ -749,24 +767,6 @@ export default function PodSpacePage() {
         } catch (e) {
           console.log("Error occured while storing to db", e);
         }
-
-        //function to process the pending ice Candidates
-        const processPendingIceCandidates = async (
-          targetPeer: peerConnectionInfo
-        ) => {
-          if (targetPeer.pendingIceCandidates.length > 0) {
-            for (const candidate of targetPeer.pendingIceCandidates) {
-              try {
-                await targetPeer.peerConnection.addIceCandidate(candidate);
-              } catch (e) {
-                console.error("Error adding buffered ICE candidate:", e);
-              }
-            }
-
-            // Clear the buffer
-            targetPeer.pendingIceCandidates = [];
-          }
-        };
       };
       getUserDevicesandSetupHandler();
     }
