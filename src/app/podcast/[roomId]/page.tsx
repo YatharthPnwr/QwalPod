@@ -88,6 +88,36 @@ export default function PodSpacePage() {
   useEffect(() => {
     //If the user is logged in only then continue, else send them to the dashboard page
     if (isLoaded && user) {
+      // Get the user devices and media.
+      (async () => {
+        //initialze a new worker
+        const workerScript = new Worker(
+          new URL("../../../../public/chunkStore.ts", import.meta.url)
+        );
+        webWorkerRef.current = workerScript;
+
+        const mediaStreams = await getUserDevices(
+          audioRecorder,
+          videoRecorder,
+          webWorkerRef,
+          user.id
+        );
+
+        if (mediaStreams) {
+          const [audioStream, videoStream] = mediaStreams;
+          initialSrcAudioStream.current = audioStream;
+          initialSrcVideoStream.current = videoStream;
+          console.log("initial audio", audioStream);
+          console.log("initialvideo", videoStream);
+          setSrcAudioStream(audioStream);
+          setSrcVideoStream(videoStream);
+          //Add the device id along with kind in the MAP.
+          deviceTypeToID.current.clear();
+          deviceTypeToID.current.set(audioStream.id, "peerAudio");
+          deviceTypeToID.current.set(videoStream.id, "peerVideo");
+        }
+      })();
+
       if (!ws.current) {
         console.log("JOINED FROM LINK");
         // user is logged in, but does not have a ws connection, meaning they joined from the link.
@@ -158,36 +188,6 @@ export default function PodSpacePage() {
 
       //Get all the existing users in room.
 
-      // Get the user devices and media.
-      (async () => {
-        //initialze a new worker
-        const workerScript = new Worker(
-          new URL("../../../../public/chunkStore.ts", import.meta.url)
-        );
-        webWorkerRef.current = workerScript;
-
-        const mediaStreams = await getUserDevices(
-          audioRecorder,
-          videoRecorder,
-          webWorkerRef,
-          user.id
-        );
-
-        if (mediaStreams) {
-          const [audioStream, videoStream] = mediaStreams;
-          initialSrcAudioStream.current = audioStream;
-          initialSrcVideoStream.current = videoStream;
-          console.log("initial audio", audioStream);
-          console.log("initialvideo", videoStream);
-          setSrcAudioStream(audioStream);
-          setSrcVideoStream(videoStream);
-          //Add the device id along with kind in the MAP.
-          deviceTypeToID.current.clear();
-          deviceTypeToID.current.set(audioStream.id, "peerAudio");
-          deviceTypeToID.current.set(videoStream.id, "peerVideo");
-        }
-      })();
-
       ws.current.onmessage = async (event) => {
         const res = JSON.parse(event.data.toString());
         if (res.type === "error") {
@@ -198,7 +198,6 @@ export default function PodSpacePage() {
           //the newly joined participant should first get the list of all the
           //users in the room.
           console.log("participant joined triggered ");
-          await new Promise((resolve) => setTimeout(resolve, 5000));
           //Do not send a connection req to everyone in the array, rather.
           //The new person that joined, should only initialte the calls.
           const existingUsers = res.existingUsers;
@@ -240,15 +239,7 @@ export default function PodSpacePage() {
 
               const newPeerConnection = new RTCPeerConnection(config);
               initializePeerStream(usr);
-              // const mediaStreams = await getUserDevices();
-              // if (mediaStreams) {
-              //   const [audioStream, videoStream] = mediaStreams;
-              //   setSrcAudioStream(audioStream);
-              //   setSrcVideoStream(videoStream);
-              //   //Add the device id along with kind in the MAP.
-              //   deviceTypeToID.current.clear();
-              //   deviceTypeToID.current.set(audioStream.id, "peerAudio");
-              //   deviceTypeToID.current.set(videoStream.id, "peerVideo");
+              //wait for the initalSrc audio and the video stream to load.
               if (
                 !initialSrcAudioStream.current ||
                 !initialSrcVideoStream.current

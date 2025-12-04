@@ -4,9 +4,10 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "baseUrl": "src", // 👈 BASE PATH is now `src`
+    "baseUrl": "src",
+    "outDir": "dist",
     "paths": { "@/*": ["*"] },
     "strict": true
   },
-  "include": ["src"]
+  "include": ["src/server.ts"]
 }

@@ -47,3 +47,4 @@ THINGSTODO.MD
 /.clerk/
 
 /src/generated/prisma
+dist
