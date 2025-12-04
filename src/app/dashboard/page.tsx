@@ -12,7 +12,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    ws.current = new WebSocket("ws://localhost:3000/api/ws");
+    ws.current = new WebSocket("wss://www.qwalpod.live/api/ws");
     if (!ws.current) {
       console.log("No websocket found returning");
       return;

@@ -26,9 +26,12 @@ export default function PodAssets() {
   } | null>(null);
   useEffect(() => {
     const getMeetingURLS = async () => {
-      const res = await axios.post("/api/getAllFilesAccessURL", {
-        meetingId: roomId,
-      });
+      const res = await axios.post(
+        "https://www.qwalpod.live/api/getAllFilesAccessURL",
+        {
+          meetingId: roomId,
+        }
+      );
       console.log(res);
       setMeetingURLS(res.data);
       setLoaded(true);

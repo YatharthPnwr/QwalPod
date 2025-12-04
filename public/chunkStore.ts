@@ -237,11 +237,14 @@ async function saveToS3(
     // check finalFile size if it is less than 10MB
     if (finalFile.size < 10000000) {
       // Call your API to get the presigned URL
-      const response = await axios.post(`/api/getSinglePresignedURL`, {
-        fileName: fileName,
-        fileType: finalFile.type,
-        meetingId: meetingId,
-      });
+      const response = await axios.post(
+        `https://www.qwalpod.live/api/getSinglePresignedURL`,
+        {
+          fileName: fileName,
+          fileType: finalFile.type,
+          meetingId: meetingId,
+        }
+      );
       const { url } = response.data;
       console.log("The presigned url is", url);
       // Use the presigned URL to upload the finalFile
@@ -259,7 +262,7 @@ async function saveToS3(
           //Add the fileKey of the audio file and the video file to the database table Recording.
           try {
             const addFileKeyToDbRes = await axios.post(
-              "/api/dbRecord/addFileURL",
+              "https://www.qwalpod.live/api/dbRecord/addFileURL",
               {
                 meetingId: meetingId,
                 userId: userId,
@@ -290,11 +293,14 @@ async function saveToS3(
       }
     } else {
       // call multipart upload endpoint and get uploadId
-      const response = await axios.post(`/api/startMultipartUpload`, {
-        fileName: fileName,
-        contentType: type,
-        meetingId: meetingId as string,
-      });
+      const response = await axios.post(
+        `https://www.qwalpod.live/api/startMultipartUpload`,
+        {
+          fileName: fileName,
+          contentType: type,
+          meetingId: meetingId as string,
+        }
+      );
 
       // get uploadId
       let { uploadId } = response.data;
@@ -312,13 +318,16 @@ async function saveToS3(
       console.log("Number of chunks:", numChunks);
 
       // generate presigned urls
-      let presignedUrls_response = await axios.post(`/api/getPresignedURLs`, {
-        fileName: fileName,
-        uploadId: uploadId,
-        partNumbers: numChunks,
-        fileType: finalFile.type,
-        meetingId: meetingId,
-      });
+      let presignedUrls_response = await axios.post(
+        `https://www.qwalpod.live/api/getPresignedURLs`,
+        {
+          fileName: fileName,
+          uploadId: uploadId,
+          partNumbers: numChunks,
+          fileType: finalFile.type,
+          meetingId: meetingId,
+        }
+      );
 
       let presigned_urls = presignedUrls_response?.data?.presignedUrls;
 
@@ -363,12 +372,15 @@ async function saveToS3(
       console.log("Parts- ", parts);
 
       // make a call to multipart complete api
-      let complete_upload = await axios.post(`/api/completeMultipartUpload`, {
-        fileName: fileName,
-        uploadId: uploadId,
-        parts: parts,
-        meetingId: meetingId,
-      });
+      let complete_upload = await axios.post(
+        `https://www.qwalpod.live/api/completeMultipartUpload`,
+        {
+          fileName: fileName,
+          uploadId: uploadId,
+          parts: parts,
+          meetingId: meetingId,
+        }
+      );
 
       console.log("Complete upload- ", complete_upload.data);
 
@@ -381,7 +393,7 @@ async function saveToS3(
         });
         try {
           const addFileKeyToDbRes = await axios.post(
-            "/api/dbRecord/addFileURL",
+            "https://www.qwalpod.live/api/dbRecord/addFileURL",
             {
               meetingId: meetingId,
               userId: userId,

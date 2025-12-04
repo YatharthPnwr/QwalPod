@@ -23,9 +23,12 @@ export default function Recordings() {
     }
     const userThumbnails = async () => {
       try {
-        const userThumbnails = await axios.post("/api/getThumbnailUrls", {
-          userId: user.id,
-        });
+        const userThumbnails = await axios.post(
+          "https://www.qwalpod.live/api/getThumbnailUrls",
+          {
+            userId: user.id,
+          }
+        );
         setUserThumbnails((prevThumbnails) => [
           ...(prevThumbnails || []),
           ...userThumbnails.data.userThumbnails,

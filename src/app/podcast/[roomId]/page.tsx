@@ -96,7 +96,7 @@ export default function PodSpacePage() {
         // Create a new ws connection, and send the join event.
         const roomId = params.roomId;
 
-        ws.current = new WebSocket("ws://localhost:3000/api/ws");
+        ws.current = new WebSocket("wss://www.qwalpod.live/api/ws");
         //send the join room.
         const wsHandler = new WebSocketConnHandle(ws.current, 500);
         wsHandler.waitForConnection(() => {
@@ -124,10 +124,13 @@ export default function PodSpacePage() {
       //add the details of the user to the users table.
       const addUserToRecord = async () => {
         try {
-          const res = await axios.post("/api/dbRecord/addUserToRoom", {
-            meetingId: localStorage.getItem("roomId") as string,
-            userId: user.id,
-          });
+          const res = await axios.post(
+            "https://www.qwalpod.live/api/dbRecord/addUserToRoom",
+            {
+              meetingId: localStorage.getItem("roomId") as string,
+              userId: user.id,
+            }
+          );
           console.log(
             "Successfully added the user to the meeting record",
             res.data
