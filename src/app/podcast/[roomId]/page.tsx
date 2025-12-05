@@ -761,7 +761,7 @@ export default function PodSpacePage() {
           const res = await axios.post(
             "https://www.qwalpod.live/api/dbRecord/addUserToRoom",
             {
-              meetingId: localStorage.getItem("roomId") as string,
+              meetingId: roomId as string,
               userId: user.id,
             }
           );

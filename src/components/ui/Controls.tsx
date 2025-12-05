@@ -343,12 +343,21 @@ export default function Controls(props: ControlsInput) {
             onClick={() => {
               //stop the recording
               props.videoRecorderRef.current?.stop();
+              props.audioRecorderRef.current?.stop();
+              props.screenShareRecorderRef.current?.stop();
+
               //release the mic and the camera
               props.srcAudioStream?.getTracks().forEach((track) => {
                 track.stop();
               });
               props.srcVideoStream?.getTracks().forEach((track) => {
                 track.stop();
+              });
+
+              //close all the peerConnections.
+              props.peerConnectionInfo.current?.forEach((peer) => {
+                //close the connection
+                peer.peerConnection.close();
               });
               //Send the msg to store the file in the cloud
               router.push(
