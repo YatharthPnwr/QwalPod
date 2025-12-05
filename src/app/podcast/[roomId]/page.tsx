@@ -16,6 +16,7 @@ export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
   const router = useRouter();
   const params = useParams();
+  const roomId = params.roomId;
   const { ws, webWorkerRef } = useApplicationContext();
   // const peerConnection = useRef<RTCPeerConnection>(null);
   const deviceTypeToID = useRef<Map<string, string>>(new Map());
@@ -138,7 +139,7 @@ export default function PodSpacePage() {
           deviceTypeToID.current.set(audioStream.id, "peerAudio");
           deviceTypeToID.current.set(videoStream.id, "peerVideo");
         }
-        const roomId = params.roomId;
+
         if (!ws.current) {
           console.log("JOINED FROM LINK");
           // user is logged in, but does not have a ws connection, meaning they joined from the link.
@@ -256,7 +257,7 @@ export default function PodSpacePage() {
                 }
                 await createSdpOffer({
                   sender: ws.current,
-                  roomId: localStorage.getItem("roomId") as string,
+                  roomId: params.roomId as string,
                   peerConnection: newPeerConnection,
                   streamMetadata: deviceTypeToID.current,
                   fromId: user.id as string,
@@ -266,7 +267,7 @@ export default function PodSpacePage() {
                 //send the Ice Candidates as well.
                 iceCandidate({
                   sender: ws.current,
-                  roomId: localStorage.getItem("roomId") as string,
+                  roomId: params.roomId as string,
                   peerConnection: newPeerConnection,
                   fromId: user.id as string,
                   toId: usr,
@@ -289,7 +290,7 @@ export default function PodSpacePage() {
                   }
                   await createSdpOffer({
                     sender: ws.current,
-                    roomId: localStorage.getItem("roomId") as string,
+                    roomId: params.roomId as string,
                     peerConnection: newPeerConnection,
                     streamMetadata: deviceTypeToID.current,
                     fromId: user.id as string,
@@ -392,7 +393,7 @@ export default function PodSpacePage() {
                   JSON.stringify({
                     event: "sendAnswer",
                     data: {
-                      roomId: localStorage.getItem("roomId"),
+                      roomId: params.roomId,
                       answer: answer,
                       streamMetaData: Object.fromEntries(
                         deviceTypeToID.current
@@ -554,7 +555,7 @@ export default function PodSpacePage() {
                 JSON.stringify({
                   event: "sendAnswer",
                   data: {
-                    roomId: localStorage.getItem("roomId"),
+                    roomId: params.roomId,
                     answer: answer,
                     streamMetaData: Object.fromEntries(deviceTypeToID.current),
                     fromId: user.id,
@@ -565,7 +566,7 @@ export default function PodSpacePage() {
               // Set up ICE candidate handling for this peer connection
               iceCandidate({
                 sender: ws.current,
-                roomId: localStorage.getItem("roomId") as string,
+                roomId: params.roomId as string,
                 peerConnection: newPeerConnection,
                 fromId: user.id as string,
                 toId: fromId,
@@ -588,7 +589,7 @@ export default function PodSpacePage() {
                 }
                 await createSdpOffer({
                   sender: ws.current,
-                  roomId: localStorage.getItem("roomId") as string,
+                  roomId: params.roomId as string,
                   peerConnection: newPeerConnection,
                   streamMetadata: deviceTypeToID.current,
                   fromId: user.id as string,
