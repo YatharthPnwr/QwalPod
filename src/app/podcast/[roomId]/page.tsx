@@ -9,11 +9,12 @@ import getUserDevices, {
 } from "../../../utils/functions/getDevicesAndMedia";
 import { useUser } from "@clerk/nextjs";
 import axios from "axios";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
+  const router = useRouter();
   const params = useParams();
   const { ws, webWorkerRef } = useApplicationContext();
   // const peerConnection = useRef<RTCPeerConnection>(null);
@@ -104,7 +105,11 @@ export default function PodSpacePage() {
   }
 
   useEffect(() => {
-    //If the user is logged in only then continue, else send them to the dashboard page
+    //If the user is logged in only then continue, else send them to the dashboard page to login
+    if (isLoaded && !user) {
+      router.push("/");
+      return;
+    }
     if (isLoaded && user) {
       const getUserDevicesandSetupHandler = async () => {
         //initialze a new worker
