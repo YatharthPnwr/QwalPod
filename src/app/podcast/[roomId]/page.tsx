@@ -11,6 +11,7 @@ import { useUser } from "@clerk/nextjs";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
+import PeerVideo from "@/components/PeerVideo";
 
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
@@ -68,13 +69,19 @@ export default function PodSpacePage() {
     mediaType: string,
     mediaStream: MediaStream
   ) => {
-    setPeerStreamInfo((prev) => ({
-      ...prev,
-      [peerId]: {
-        ...prev[peerId],
-        [mediaType]: mediaStream,
-      },
-    }));
+    setPeerStreamInfo((prev) => {
+      const newState = {
+        ...prev,
+        [peerId]: {
+          ...prev[peerId],
+          [mediaType]: mediaStream,
+        },
+      };
+
+      console.log("The new state is", newState);
+
+      return newState;
+    });
   };
 
   const initializePeerStream = (peerId: string) => {
@@ -518,25 +525,12 @@ export default function PodSpacePage() {
                     initialSrcVideoStream.current
                   );
                 });
-
-                // if (srcAudioStream && srcVideoStream) {
-                //   // Add tracks to peer connection
-                //   srcAudioStream.getTracks().forEach((track) => {
-                //     newPeerConnection.addTrack(track, srcAudioStream);
-                //   });
-                //   srcVideoStream.getTracks().forEach((track) => {
-                //     newPeerConnection.addTrack(track, srcVideoStream);
-                //   });
-                // } else {
-                //   console.log("No streams found returning");
-                //   return;
-                // }
               } catch (error) {
                 console.error("Error in initial offer handling:", error);
               }
 
               // Set remote description
-              console.log("setting remore description");
+              console.log("setting remote description");
               await newPeerConnection.setRemoteDescription(
                 new RTCSessionDescription(remoteOffer)
               );
@@ -677,9 +671,11 @@ export default function PodSpacePage() {
               const remoteStreamId = remoteStream.id;
               const remoteDeviceType =
                 targetPeer.remoteDeviceTypeToId.get(remoteStreamId);
+              console.log("The current peerStream is", peerStreamInfo);
 
               if (remoteDeviceType === "peerAudio") {
                 console.log("updating peer audio");
+                console.log("The current peerStream is", peerStreamInfo);
                 updatePeerStream(
                   res.data.fromId,
                   "peerAudioStream",
@@ -688,6 +684,7 @@ export default function PodSpacePage() {
                 // setPeerAudioStream(remoteStream);
               } else if (remoteDeviceType === "peerVideo") {
                 console.log("updating peer video component using hmr");
+                console.log("The current peerStream is", peerStreamInfo);
                 updatePeerStream(
                   res.data.fromId,
                   "peerVideoStream",
@@ -815,43 +812,7 @@ export default function PodSpacePage() {
           peerConnectionInfo.current.map((peerInfo) => {
             const streams = peerStreamInfo[peerInfo.to] || {};
             return (
-              <div
-                key={peerInfo.to}
-                className="relative rounded-2xl overflow-hidden shadow-lg bg-black flex items-center justify-center"
-              >
-                <video
-                  className="w-full h-full object-cover"
-                  autoPlay
-                  playsInline
-                  muted
-                  ref={(video) => {
-                    if (video && streams.peerVideoStream) {
-                      video.srcObject = streams.peerVideoStream;
-                    }
-                  }}
-                ></video>
-                <audio
-                  autoPlay
-                  ref={(audio) => {
-                    if (audio && streams.peerAudioStream) {
-                      audio.srcObject = streams.peerAudioStream;
-                    }
-                  }}
-                ></audio>
-                {streams.peerScreenShareVideoStream && (
-                  <video
-                    className="absolute top-2 right-2 w-40 h-24 border-2 border-white rounded-lg shadow-lg"
-                    autoPlay
-                    playsInline
-                    muted
-                    ref={(video) => {
-                      if (video && streams.peerScreenShareVideoStream) {
-                        video.srcObject = streams.peerScreenShareVideoStream;
-                      }
-                    }}
-                  ></video>
-                )}
-              </div>
+              <PeerVideo key={peerInfo.to} to={peerInfo.to} streams={streams} />
             );
           })}
       </div>
