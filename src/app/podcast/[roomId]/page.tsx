@@ -329,7 +329,7 @@ export default function PodSpacePage() {
                     //Remove the peer from the current list of users in the room
                     peerConnectionInfo.current =
                       peerConnectionInfo.current.filter((peer) => {
-                        peer == removedPeer;
+                        return peer !== removedPeer;
                       });
 
                     console.log(
@@ -711,7 +711,7 @@ export default function PodSpacePage() {
                   //Remove the peer from the current list of users in the room
                   peerConnectionInfo.current =
                     peerConnectionInfo.current.filter((peer) => {
-                      peer == removedPeer;
+                      return peer !== removedPeer;
                     });
 
                   console.log(
