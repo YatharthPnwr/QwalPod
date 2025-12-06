@@ -40,7 +40,6 @@ export class podSpaceManager {
   }
 
   public getExistingUsers(roomId: string) {
-    console.log("The roomId reaching the server is", roomId);
     const room = this.rooms.find((room) => {
       return room.roomId === roomId;
     });
@@ -53,13 +52,10 @@ export class podSpaceManager {
     }
 
     const existingUsersInRoom = room.users;
-    console.log(existingUsersInRoom);
     const existingUsersIds: string[] = [];
     existingUsersInRoom.forEach((usr) => {
-      console.log(usr.userId);
       existingUsersIds.push(usr.userId);
     });
-    console.log("SENDING THE FOLLOWING USERS", existingUsersIds);
     return {
       type: "existingUsers",
       data: existingUsersIds,
@@ -71,7 +67,6 @@ export class podSpaceManager {
       userId: userId,
       webSocket: ws,
     };
-    console.log("The room id found is", this.rooms);
     const room = this.rooms.find((room) => {
       return room.roomId === roomId;
     });
@@ -81,18 +76,22 @@ export class podSpaceManager {
         data: "no room with the given room id found.",
       } as const satisfies WsResponse;
     }
-    //add the new user to the room.
-    room.users.push(user);
-    room.users.forEach((usr) => {
-      process.stdout.write(usr.userId);
+
+    //Check if the userID is already present, if so, then only update the webSocket
+    const usrPresent = room.users.find((usr) => {
+      return usr.userId === userId;
     });
+    if (usrPresent) {
+      usrPresent.webSocket = ws;
+    } else {
+      //add the new user to the room.
+      room.users.push(user);
+    }
 
     //ALso return the existing users in the room array.
     const existingUsers = room.users.map((user) => {
       return user.userId;
     });
-    console.log("Sending the existing users", existingUsers);
-
     //if the new user is the host, emit the hostJoined event
     return {
       type: "participantJoined",
@@ -172,17 +171,6 @@ export class podSpaceManager {
         data: "Failed to find room",
       } as const satisfies WsResponse;
     }
-    // currentPod?.users.forEach((user) => {
-    //   if (user.webSocket != ws) {
-    //     user.webSocket.send(
-    //       JSON.stringify({
-    //         type: "answer",
-    //         data: answer,
-    //         streamMetaData: Object.fromEntries(streamMetaData),
-    //       })
-    //     );
-    //   }
-    // });
 
     //Send the answer only to the specified user.
     const targetPeer = currentPod?.users.find((usr) => {

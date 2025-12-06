@@ -840,21 +840,21 @@ export default function PodSpacePage() {
         });
 
         //add the details of the user to the users table.
-        try {
-          const res = await axios.post(
-            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addUserToRoom`,
-            {
-              meetingId: roomId as string,
-              userId: user.id,
-            }
-          );
-          console.log(
-            "Successfully added the user to the meeting record",
-            res.data
-          );
-        } catch (e) {
-          console.log("Error occured while storing to db", e);
-        }
+        // try {
+        //   const res = await axios.post(
+        //     `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addUserToRoom`,
+        //     {
+        //       meetingId: roomId as string,
+        //       userId: user.id,
+        //     }
+        //   );
+        //   console.log(
+        //     "Successfully added the user to the meeting record",
+        //     res.data
+        //   );
+        // } catch (e) {
+        //   console.log("Error occured while storing to db", e);
+        // }
       };
       getUserDevicesandSetupHandler();
     }

@@ -59,6 +59,7 @@ nextApp.prepare().then(() => {
 
       //A handler that sends the answer of an sdp offer to all the clients in the podSpace.
       if (event == "sendAnswer") {
+        console.log("Sending the answer to", data.toId);
         const res = JSON.stringify(
           await podMan.answer(
             data.roomId,
