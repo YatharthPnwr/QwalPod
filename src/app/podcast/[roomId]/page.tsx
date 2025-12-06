@@ -8,7 +8,6 @@ import getUserDevices, {
   updateMediaStream,
 } from "../../../utils/functions/getDevicesAndMedia";
 import { useUser } from "@clerk/nextjs";
-import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import PeerVideo from "@/components/PeerVideo";
