@@ -12,7 +12,9 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    ws.current = new WebSocket("wss://www.qwalpod.live/api/ws");
+    ws.current = new WebSocket(
+      `${process.env.NEXT_PUBLIC_WS_BACKEND_URL as string}/api/ws`
+    );
     if (!ws.current) {
       console.log("No websocket found returning");
       return;

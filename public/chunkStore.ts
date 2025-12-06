@@ -238,7 +238,7 @@ async function saveToS3(
     if (finalFile.size < 10000000) {
       // Call your API to get the presigned URL
       const response = await axios.post(
-        `https://www.qwalpod.live/api/getSinglePresignedURL`,
+        `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/getSinglePresignedURL`,
         {
           fileName: fileName,
           fileType: finalFile.type,
@@ -262,7 +262,7 @@ async function saveToS3(
           //Add the fileKey of the audio file and the video file to the database table Recording.
           try {
             const addFileKeyToDbRes = await axios.post(
-              "https://www.qwalpod.live/api/dbRecord/addFileURL",
+              `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
               {
                 meetingId: meetingId,
                 userId: userId,
@@ -294,7 +294,7 @@ async function saveToS3(
     } else {
       // call multipart upload endpoint and get uploadId
       const response = await axios.post(
-        `https://www.qwalpod.live/api/startMultipartUpload`,
+        `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/startMultipartUpload`,
         {
           fileName: fileName,
           contentType: type,
@@ -319,7 +319,7 @@ async function saveToS3(
 
       // generate presigned urls
       let presignedUrls_response = await axios.post(
-        `https://www.qwalpod.live/api/getPresignedURLs`,
+        `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/getPresignedURLs`,
         {
           fileName: fileName,
           uploadId: uploadId,
@@ -373,7 +373,7 @@ async function saveToS3(
 
       // make a call to multipart complete api
       let complete_upload = await axios.post(
-        `https://www.qwalpod.live/api/completeMultipartUpload`,
+        `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/completeMultipartUpload`,
         {
           fileName: fileName,
           uploadId: uploadId,
@@ -393,7 +393,7 @@ async function saveToS3(
         });
         try {
           const addFileKeyToDbRes = await axios.post(
-            "https://www.qwalpod.live/api/dbRecord/addFileURL",
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
             {
               meetingId: meetingId,
               userId: userId,

@@ -151,7 +151,10 @@ export default function PodSpacePage() {
           console.log("JOINED FROM LINK");
           // user is logged in, but does not have a ws connection, meaning they joined from the link.
           // Create a new ws connection, and send the join event.
-          ws.current = new WebSocket("wss://www.qwalpod.live/api/ws");
+          ws.current = new WebSocket(
+            `${process.env.NEXT_PUBLIC_WS_BACKEND_URL as string}/api/ws`
+          );
+          localStorage.setItem("roomId", roomId as string);
         }
         //setup handlers
         ws.current.onmessage = async (event) => {
@@ -193,6 +196,7 @@ export default function PodSpacePage() {
                 userId !== currentUserId &&
                 existingUsers.indexOf(userId) === index
             );
+            console.log("The users to connect to are, ", usersToConnectTo);
             existingUserIds.current = usersToConnectTo;
 
             if (Array.isArray(existingUserIds.current)) {
@@ -289,7 +293,6 @@ export default function PodSpacePage() {
                   console.log(
                     "Negotiation is required. sending again the sdp offers."
                   );
-                  //@note- This can cause errors
 
                   if (!ws.current) {
                     console.log("No websocket found");
@@ -303,6 +306,47 @@ export default function PodSpacePage() {
                     fromId: user.id as string,
                     toId: usr,
                   });
+                };
+                //Peer leave check
+
+                newPeerConnection.oniceconnectionstatechange = async () => {
+                  if (newPeerConnection.iceConnectionState == "disconnected") {
+                    console.log("Disconnection event triggered");
+                    //cannot find the remote peer.
+                    console.log("The userId that disconnected is", usr);
+                    const removedPeer = peerConnectionInfo.current.find(
+                      (peer) => {
+                        return peer.to == usr;
+                      }
+                    );
+                    console.log("The removed peer is", removedPeer);
+                    const peerId = removedPeer?.to;
+                    if (!peerId) {
+                      console.log(
+                        "Was not able to find the removed peer, canceling the remove event"
+                      );
+                      return;
+                    }
+                    //Remove the peer from the current list of users in the room
+                    peerConnectionInfo.current =
+                      peerConnectionInfo.current.filter((peer) => {
+                        peer == removedPeer;
+                      });
+
+                    console.log(
+                      "Removed the peer with id",
+                      peerId,
+                      "from peerConnectionInfo"
+                    );
+                    //remove the peer resources from the peerStreamInfo
+                    setPeerStreamInfo((prevRecord) => {
+                      const new_state = {
+                        ...prevRecord,
+                      };
+                      delete new_state[peerId];
+                      return new_state;
+                    });
+                  }
                 };
 
                 navigator.mediaDevices.ondevicechange = async () => {
@@ -569,7 +613,7 @@ export default function PodSpacePage() {
               newPeerConnection.onconnectionstatechange = () => {
                 console.log(
                   "Connection state for",
-                  fromId,
+                  toId,
                   ":",
                   newPeerConnection.connectionState
                 );
@@ -643,6 +687,47 @@ export default function PodSpacePage() {
                       newVideoStream.getVideoTracks()[0]
                     );
                   }
+                }
+              };
+
+              //Peer leave check
+              newPeerConnection.oniceconnectionstatechange = async () => {
+                if (newPeerConnection.iceConnectionState == "disconnected") {
+                  console.log("Disconnection event triggered");
+                  //cannot find the remote peer.
+                  console.log("The userId that disconnected is", fromId);
+                  const removedPeer = peerConnectionInfo.current.find(
+                    (peer) => {
+                      return peer.to == fromId;
+                    }
+                  );
+                  console.log("The removed peer is", removedPeer);
+                  const peerId = removedPeer?.to;
+                  if (!peerId) {
+                    console.log(
+                      "Was not able to find the removed peer, canceling the remove event"
+                    );
+                    return;
+                  }
+                  //Remove the peer from the current list of users in the room
+                  peerConnectionInfo.current =
+                    peerConnectionInfo.current.filter((peer) => {
+                      peer == removedPeer;
+                    });
+
+                  console.log(
+                    "Removed the peer with id",
+                    peerId,
+                    "from peerConnectionInfo"
+                  );
+                  //remove the peer resources from the peerStreamInfo
+                  setPeerStreamInfo((prevRecord) => {
+                    const new_state = {
+                      ...prevRecord,
+                    };
+                    delete new_state[peerId];
+                    return new_state;
+                  });
                 }
               };
             }
@@ -757,7 +842,7 @@ export default function PodSpacePage() {
         //add the details of the user to the users table.
         try {
           const res = await axios.post(
-            "https://www.qwalpod.live/api/dbRecord/addUserToRoom",
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addUserToRoom`,
             {
               meetingId: roomId as string,
               userId: user.id,
