@@ -118,6 +118,20 @@ export default function PodSpacePage() {
       return;
     }
     if (isLoaded && user) {
+      window.addEventListener("beforeunload", (event) => {
+        // event.preventDefault();
+        console.log("Exiting", user?.id);
+        ws.current?.send(
+          JSON.stringify({
+            event: "disconnecting",
+            data: {
+              roomId: roomId,
+              userId: user.id,
+            },
+          })
+        );
+      });
+
       const getUserDevicesandSetupHandler = async () => {
         //initialze a new worker
         const workerScript = new Worker(
@@ -162,6 +176,18 @@ export default function PodSpacePage() {
             // console.log(res.data);
           } else if (res.type === "success") {
             console.log(res.data);
+          } else if (res.type === "disconnected") {
+            const userId = res.data.userId;
+            console.log("The user that left is", userId);
+            peerConnectionInfo.current = peerConnectionInfo.current.filter(
+              (usr) => usr.to !== userId
+            );
+            // Clean up the disconnected peer's streams
+            setPeerStreamInfo((prevRecord) => {
+              const new_state = { ...prevRecord };
+              delete new_state[userId];
+              return new_state;
+            });
           } else if (res.type === "participantJoined") {
             //the newly joined participant should first get the list of all the
             //users in the room.
@@ -305,47 +331,6 @@ export default function PodSpacePage() {
                     fromId: user.id as string,
                     toId: usr,
                   });
-                };
-                //Peer leave check
-
-                newPeerConnection.oniceconnectionstatechange = async () => {
-                  if (newPeerConnection.iceConnectionState == "disconnected") {
-                    console.log("Disconnection event triggered");
-                    //cannot find the remote peer.
-                    console.log("The userId that disconnected is", usr);
-                    const removedPeer = peerConnectionInfo.current.find(
-                      (peer) => {
-                        return peer.to == usr;
-                      }
-                    );
-                    console.log("The removed peer is", removedPeer);
-                    const peerId = removedPeer?.to;
-                    if (!peerId) {
-                      console.log(
-                        "Was not able to find the removed peer, canceling the remove event"
-                      );
-                      return;
-                    }
-                    //Remove the peer from the current list of users in the room
-                    peerConnectionInfo.current =
-                      peerConnectionInfo.current.filter((peer) => {
-                        return peer !== removedPeer;
-                      });
-
-                    console.log(
-                      "Removed the peer with id",
-                      peerId,
-                      "from peerConnectionInfo"
-                    );
-                    //remove the peer resources from the peerStreamInfo
-                    setPeerStreamInfo((prevRecord) => {
-                      const new_state = {
-                        ...prevRecord,
-                      };
-                      delete new_state[peerId];
-                      return new_state;
-                    });
-                  }
                 };
 
                 navigator.mediaDevices.ondevicechange = async () => {
@@ -688,47 +673,6 @@ export default function PodSpacePage() {
                   }
                 }
               };
-
-              //Peer leave check
-              newPeerConnection.oniceconnectionstatechange = async () => {
-                if (newPeerConnection.iceConnectionState == "disconnected") {
-                  console.log("Disconnection event triggered");
-                  //cannot find the remote peer.
-                  console.log("The userId that disconnected is", fromId);
-                  const removedPeer = peerConnectionInfo.current.find(
-                    (peer) => {
-                      return peer.to == fromId;
-                    }
-                  );
-                  console.log("The removed peer is", removedPeer);
-                  const peerId = removedPeer?.to;
-                  if (!peerId) {
-                    console.log(
-                      "Was not able to find the removed peer, canceling the remove event"
-                    );
-                    return;
-                  }
-                  //Remove the peer from the current list of users in the room
-                  peerConnectionInfo.current =
-                    peerConnectionInfo.current.filter((peer) => {
-                      return peer !== removedPeer;
-                    });
-
-                  console.log(
-                    "Removed the peer with id",
-                    peerId,
-                    "from peerConnectionInfo"
-                  );
-                  //remove the peer resources from the peerStreamInfo
-                  setPeerStreamInfo((prevRecord) => {
-                    const new_state = {
-                      ...prevRecord,
-                    };
-                    delete new_state[peerId];
-                    return new_state;
-                  });
-                }
-              };
             }
           } else if (res.type == "answer") {
             //Find the peer that you have received answer of.
@@ -918,6 +862,7 @@ export default function PodSpacePage() {
           audioRecorderRef={audioRecorder}
           videoRecorderRef={videoRecorder}
           userId={user?.id}
+          roomId={params.roomId as string}
           screenShareRecorderRef={screenShareRecorderRef}
         />
       </div>

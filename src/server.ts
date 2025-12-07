@@ -84,6 +84,12 @@ nextApp.prepare().then(() => {
         );
         ws.send(res);
       }
+
+      if (event == "disconnecting") {
+        const roomId = data.roomId;
+        const user = data.userId;
+        await podMan.disconnecting(roomId, user);
+      }
     });
   });
 

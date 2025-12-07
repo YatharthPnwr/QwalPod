@@ -37,11 +37,13 @@ interface ControlsInput {
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
   screenShareRecorderRef: React.RefObject<MediaRecorder | null>;
   // webWorkerRef: React.RefObject<Worker | null>;
+  roomId: string | undefined;
   userId: string | undefined;
 }
 export default function Controls(props: ControlsInput) {
   const [audioSelectionModal, setAudioSelectionModal] =
     useState<boolean>(false);
+  const { ws } = useApplicationContext();
   const [videoSelectionModal, setVideoSelectionModal] =
     useState<boolean>(false);
   const [micOn, setMicOn] = useState<boolean>(true);
@@ -345,6 +347,16 @@ export default function Controls(props: ControlsInput) {
               props.videoRecorderRef.current?.stop();
               props.audioRecorderRef.current?.stop();
               props.screenShareRecorderRef.current?.stop();
+              console.log("Exiting", props.userId);
+              ws.current?.send(
+                JSON.stringify({
+                  event: "disconnecting",
+                  data: {
+                    roomId: props.roomId,
+                    userId: props.userId,
+                  },
+                })
+              );
 
               //release the mic and the camera
               props.srcAudioStream?.getTracks().forEach((track) => {

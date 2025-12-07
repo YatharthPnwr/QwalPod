@@ -155,6 +155,33 @@ export class podSpaceManager {
     } as const satisfies WsResponse;
   }
 
+  public async disconnecting(roomId: string, userId: string) {
+    const currentPod = this.rooms.find((room) => {
+      return room.roomId === roomId;
+    });
+    //return an error msg if failed to find a room.
+    if (!currentPod) {
+      return {
+        type: "error",
+        error: "Failed to find room",
+      } as const satisfies WsResponse;
+    }
+    currentPod.users = currentPod.users.filter((usr) => usr.userId != userId);
+    //@feature - If there are no users in the meeting, close it.
+    //send the disconnected users user id to everyone in the room
+    currentPod.users.forEach((usr) => {
+      const wsConnection = usr.webSocket;
+      wsConnection.send(
+        JSON.stringify({
+          type: "disconnected",
+          data: {
+            userId: userId,
+          },
+        })
+      );
+    });
+  }
+
   public async answer(
     roomId: string,
     answer: string,
