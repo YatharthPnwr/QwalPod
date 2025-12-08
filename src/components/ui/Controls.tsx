@@ -31,6 +31,8 @@ interface ControlsInput {
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   srcAudioStream: MediaStream | undefined;
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
+  latestSrcAudioStream: React.RefObject<MediaStream | undefined>;
+  latestSrcVideoStream: React.RefObject<MediaStream | undefined>;
   peerConnectionInfo: React.RefObject<peerConnectionInfo[]>;
   deviceTypeToID: React.RefObject<Map<string, string>>;
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
@@ -201,11 +203,14 @@ export default function Controls(props: ControlsInput) {
                           setSrcVideoStream: props.setSrcVideoStream,
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
+                          latestSrcAudioStream: props.latestSrcAudioStream,
+                          latestSrcVideoStream: props.latestSrcVideoStream,
                           peerConnectionInfo: props.peerConnectionInfo,
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
                           webWorkerRef: webWorkerRef,
                           userId: props.userId,
+                          deviceTypeToID: props.deviceTypeToID,
                         });
                       }}
                     >
@@ -306,11 +311,14 @@ export default function Controls(props: ControlsInput) {
                           setSrcVideoStream: props.setSrcVideoStream,
                           srcAudioStream: props.srcAudioStream,
                           setSrcAudioStream: props.setSrcAudioStream,
+                          latestSrcAudioStream: props.latestSrcAudioStream,
+                          latestSrcVideoStream: props.latestSrcVideoStream,
                           peerConnectionInfo: props.peerConnectionInfo,
                           audioRecorderRef: props.audioRecorderRef,
                           videoRecorderRef: props.videoRecorderRef,
                           webWorkerRef: webWorkerRef,
                           userId: props.userId,
+                          deviceTypeToID: props.deviceTypeToID,
                         });
                       }}
                     >

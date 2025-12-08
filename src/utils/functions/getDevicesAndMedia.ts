@@ -224,10 +224,13 @@ interface switchMediaInputs {
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
   srcAudioStream: MediaStream | undefined;
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
+  latestSrcAudioStream: React.RefObject<MediaStream | undefined>;
+  latestSrcVideoStream: React.RefObject<MediaStream | undefined>;
   audioRecorderRef: React.RefObject<MediaRecorder | null>;
   videoRecorderRef: React.RefObject<MediaRecorder | null>;
   webWorkerRef: React.RefObject<Worker | null>;
   userId: string | undefined;
+  deviceTypeToID: React.RefObject<Map<string, string>>;
 }
 
 export async function switchMedia(props: switchMediaInputs) {
@@ -257,7 +260,15 @@ export async function switchMedia(props: switchMediaInputs) {
         }
       });
 
+      props.latestSrcAudioStream.current = newAudioStream;
+
       props.setSrcAudioStream(newAudioStream);
+      console.log(
+        "Latest src audio stream is set as",
+        props.latestSrcAudioStream.current
+      );
+      //Update the local mapping
+      props.deviceTypeToID.current.set(newAudioStream.id, "peerAudio");
 
       // Update peer connections
       props.peerConnectionInfo.current.forEach((peer) => {
@@ -323,8 +334,10 @@ export async function switchMedia(props: switchMediaInputs) {
           track.stop();
         }
       });
-
       props.setSrcVideoStream(newVideoStream);
+      props.latestSrcVideoStream.current = newVideoStream;
+      //Update the local mapping
+      props.deviceTypeToID.current.set(newVideoStream.id, "peerVideo");
 
       // Update peer connections
       props.peerConnectionInfo.current.forEach((peer) => {

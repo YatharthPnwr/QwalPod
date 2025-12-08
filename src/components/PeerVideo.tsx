@@ -20,7 +20,6 @@ export default function PeerVideo({
 
   useEffect(() => {
     //Use effect to update the video
-    console.log("Use effect triggered!!!!!");
     if (peerVideoRef.current) {
       peerVideoRef.current.srcObject = streams.peerVideoStream;
     }
@@ -28,7 +27,6 @@ export default function PeerVideo({
 
   //Use effect to update the audio
   useEffect(() => {
-    console.log("Use effect triggered!!!!!");
     if (peerAudioRef.current) {
       peerAudioRef.current.srcObject = streams.peerAudioStream;
     }
@@ -36,8 +34,6 @@ export default function PeerVideo({
 
   //Use effect to update the screen share video
   useEffect(() => {
-    console.log("Use effect triggered!!!!!");
-
     if (peerScreenShareVideoRef.current) {
       peerScreenShareVideoRef.current.srcObject =
         streams.peerScreenShareVideoStream;
@@ -46,7 +42,6 @@ export default function PeerVideo({
 
   //Use effect to update the screen share audio
   useEffect(() => {
-    console.log("Use effect triggered!!!!!");
     if (peerScreenShareAudioRef.current) {
       peerScreenShareAudioRef.current.srcObject =
         streams.peerScreenShareAudioStream;

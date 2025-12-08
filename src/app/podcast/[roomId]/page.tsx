@@ -26,13 +26,12 @@ export default function PodSpacePage() {
   const [srcVideoStream, setSrcVideoStream] = useState<MediaStream | undefined>(
     undefined
   );
-  const initialSrcAudioStream = useRef<MediaStream | undefined>(undefined);
-  const initialSrcVideoStream = useRef<MediaStream | undefined>(undefined);
+  const latestSrcAudioStream = useRef<MediaStream | undefined>(undefined);
+  const latestSrcVideoStream = useRef<MediaStream | undefined>(undefined);
 
   const audioRecorder = useRef<MediaRecorder | null>(null);
   const videoRecorder = useRef<MediaRecorder | null>(null);
   const screenShareRecorderRef = useRef<MediaRecorder | null>(null);
-  // const webWorkerRef = useRef<Worker | null>(null);
 
   const [audioInputOptions, setAudioInputOptions] =
     useState<MediaDeviceInfo[]>();
@@ -148,8 +147,8 @@ export default function PodSpacePage() {
 
         if (mediaStreams) {
           const [audioStream, videoStream] = mediaStreams;
-          initialSrcAudioStream.current = audioStream;
-          initialSrcVideoStream.current = videoStream;
+          latestSrcAudioStream.current = audioStream;
+          latestSrcVideoStream.current = videoStream;
           console.log("initial audio", audioStream);
           console.log("initialvideo", videoStream);
           setSrcAudioStream(audioStream);
@@ -236,18 +235,18 @@ export default function PodSpacePage() {
                 initializePeerStream(usr);
                 //wait for the initalSrc audio and the video stream to load.
                 if (
-                  !initialSrcAudioStream.current ||
-                  !initialSrcVideoStream.current
+                  !latestSrcAudioStream.current ||
+                  !latestSrcVideoStream.current
                 ) {
                   console.log(
                     "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND"
                   );
                   return;
                 }
-                initialSrcAudioStream.current.getTracks().forEach((track) => {
+                latestSrcAudioStream.current.getTracks().forEach((track) => {
                   if (
-                    !initialSrcAudioStream.current ||
-                    !initialSrcVideoStream.current
+                    !latestSrcAudioStream.current ||
+                    !latestSrcVideoStream.current
                   ) {
                     console.log(
                       "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
@@ -256,13 +255,13 @@ export default function PodSpacePage() {
                   }
                   newPeerConnection.addTrack(
                     track,
-                    initialSrcAudioStream.current
+                    latestSrcAudioStream.current
                   );
                 });
-                initialSrcVideoStream.current.getTracks().forEach((track) => {
+                latestSrcVideoStream.current.getTracks().forEach((track) => {
                   if (
-                    !initialSrcAudioStream.current ||
-                    !initialSrcVideoStream.current
+                    !latestSrcAudioStream.current ||
+                    !latestSrcVideoStream.current
                   ) {
                     console.log(
                       "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
@@ -271,7 +270,7 @@ export default function PodSpacePage() {
                   }
                   newPeerConnection.addTrack(
                     track,
-                    initialSrcVideoStream.current
+                    latestSrcVideoStream.current
                   );
                 });
                 // }
@@ -514,43 +513,53 @@ export default function PodSpacePage() {
 
               try {
                 // Get user media and add tracks
+                //Here the initialSrcAudio and videeoSTream are invalid, coz we already switched.
+                //use srcAudio and srcVideo useState variables.
                 if (
-                  !initialSrcAudioStream.current ||
-                  !initialSrcVideoStream.current
+                  !latestSrcAudioStream.current ||
+                  !latestSrcVideoStream.current
                 ) {
                   console.log(
                     "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND"
                   );
                   return;
                 }
-                initialSrcAudioStream.current.getTracks().forEach((track) => {
+                latestSrcAudioStream.current.getTracks().forEach((track) => {
                   if (
-                    !initialSrcAudioStream.current ||
-                    !initialSrcVideoStream.current
+                    !latestSrcAudioStream.current ||
+                    !latestSrcVideoStream.current
                   ) {
                     console.log(
-                      "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                      "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS no tracks found"
                     );
                     return;
                   }
+                  console.log(
+                    "Setting up the srcAudioStream in the answer as as",
+                    latestSrcAudioStream.current
+                  );
                   newPeerConnection.addTrack(
                     track,
-                    initialSrcAudioStream.current
+                    latestSrcAudioStream.current
                   );
                 });
-                initialSrcVideoStream.current.getTracks().forEach((track) => {
+                latestSrcVideoStream.current.getTracks().forEach((track) => {
                   if (
-                    !initialSrcAudioStream.current ||
-                    !initialSrcVideoStream.current
+                    !latestSrcAudioStream.current ||
+                    !latestSrcVideoStream.current
                   ) {
                     console.log(
-                      "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO STREAMS FOUND. INSIDE THE TRACK"
+                      "FAILURE IN ADDING THE SRC AUDIO AND VIDEO STREAMS NO tracks found."
                     );
                     return;
                   }
+                  console.log(
+                    "Setting up the srcVideoStream in the answer as as",
+                    latestSrcVideoStream.current
+                  );
                   newPeerConnection.addTrack(
                     track,
-                    initialSrcVideoStream.current
+                    latestSrcVideoStream.current
                   );
                 });
               } catch (error) {
@@ -570,7 +579,7 @@ export default function PodSpacePage() {
 
               const answer = await newPeerConnection.createAnswer();
               await newPeerConnection.setLocalDescription(answer);
-              console.log("SEding the answer");
+              console.log("Sending the answer");
 
               // Send the answer
               ws.current.send(
@@ -857,6 +866,8 @@ export default function PodSpacePage() {
           setSrcVideoStream={setSrcVideoStream}
           srcAudioStream={srcAudioStream}
           setSrcAudioStream={setSrcAudioStream}
+          latestSrcAudioStream={latestSrcAudioStream}
+          latestSrcVideoStream={latestSrcVideoStream}
           deviceTypeToID={deviceTypeToID}
           // webWorkerRef={webWorkerRef}
           audioRecorderRef={audioRecorder}
