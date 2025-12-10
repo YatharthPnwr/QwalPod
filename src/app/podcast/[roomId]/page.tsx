@@ -2,11 +2,12 @@
 import { useRef, useEffect, useState } from "react";
 import { createSdpOffer } from "@/utils/functions/sdpOffer";
 import { iceCandidate } from "@/utils/functions/iceCandidate";
-import Controls from "@/components/ui/Controls";
+import Controls from "@/components/Controls";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import getUserDevices, {
   updateMediaStream,
 } from "../../../utils/functions/getDevicesAndMedia";
+import axios from "axios";
 import { useUser } from "@clerk/nextjs";
 import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
@@ -18,7 +19,6 @@ export default function PodSpacePage() {
   const params = useParams();
   const roomId = params.roomId;
   const { ws, webWorkerRef } = useApplicationContext();
-  // const peerConnection = useRef<RTCPeerConnection>(null);
   const deviceTypeToID = useRef<Map<string, string>>(new Map());
   const [srcAudioStream, setSrcAudioStream] = useState<MediaStream | undefined>(
     undefined
@@ -117,8 +117,7 @@ export default function PodSpacePage() {
       return;
     }
     if (isLoaded && user) {
-      window.addEventListener("beforeunload", (event) => {
-        // event.preventDefault();
+      window.addEventListener("beforeunload", () => {
         console.log("Exiting", user?.id);
         ws.current?.send(
           JSON.stringify({
@@ -792,21 +791,21 @@ export default function PodSpacePage() {
         });
 
         //add the details of the user to the users table.
-        // try {
-        //   const res = await axios.post(
-        //     `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addUserToRoom`,
-        //     {
-        //       meetingId: roomId as string,
-        //       userId: user.id,
-        //     }
-        //   );
-        //   console.log(
-        //     "Successfully added the user to the meeting record",
-        //     res.data
-        //   );
-        // } catch (e) {
-        //   console.log("Error occured while storing to db", e);
-        // }
+        try {
+          const res = await axios.post(
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addUserToRoom`,
+            {
+              meetingId: roomId as string,
+              userId: user.id,
+            }
+          );
+          console.log(
+            "Successfully added the user to the meeting record",
+            res.data
+          );
+        } catch (e) {
+          console.log("Error occured while storing to db", e);
+        }
       };
       getUserDevicesandSetupHandler();
     }
@@ -820,7 +819,7 @@ export default function PodSpacePage() {
   const columns = Math.ceil(Math.sqrt(totalParticipants));
   const rows = Math.ceil(totalParticipants / columns);
   return (
-    <div className="w-screen h-screen grid grid-rows-[85%_15%] bg-black">
+    <div className="w-screen h-screen grid grid-rows-[80%_20%] bg-black">
       {/* Video Section */}
       <div
         className="w-full h-full grid gap-4 overflow-x-hidden"
@@ -832,7 +831,7 @@ export default function PodSpacePage() {
         {/* Your video */}
         <div className="relative rounded-2xl overflow-hidden shadow-lg bg-black flex items-center justify-center">
           <video
-            className="w-full h-full object-cover"
+            className="w-full h-full"
             autoPlay
             playsInline
             muted
@@ -855,7 +854,7 @@ export default function PodSpacePage() {
       </div>
 
       {/* Controls Section */}
-      <div className="w-full h-full flex items-center justify-center bg-gray-900 shadow-inner">
+      <div className="p-5 w-full h-full flex items-center justify-center shadow-inner">
         <Controls
           audioInputOptions={audioInputOptions}
           setAudioInputOptions={setAudioInputOptions}
@@ -869,7 +868,6 @@ export default function PodSpacePage() {
           latestSrcAudioStream={latestSrcAudioStream}
           latestSrcVideoStream={latestSrcVideoStream}
           deviceTypeToID={deviceTypeToID}
-          // webWorkerRef={webWorkerRef}
           audioRecorderRef={audioRecorder}
           videoRecorderRef={videoRecorder}
           userId={user?.id}

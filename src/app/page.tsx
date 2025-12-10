@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 export default function DashBoard() {
   const router = useRouter();
-  // const { theme, setTheme } = useTheme();
-  // const { user, isLoaded } = useUser();
   return (
     <div>
       <div className=" flex items-center justify-center flex-col mb-10">

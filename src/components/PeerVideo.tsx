@@ -53,7 +53,7 @@ export default function PeerVideo({
       {/* Peer video */}
       <video
         ref={peerVideoRef}
-        className="w-full h-full object-cover"
+        className="w-full h-full"
         autoPlay
         playsInline
         muted
