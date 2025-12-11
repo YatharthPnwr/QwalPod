@@ -12,6 +12,8 @@ import { useUser } from "@clerk/nextjs";
 import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import PeerVideo from "@/components/PeerVideo";
+import { ScreenShareStatus } from "@/utils/exports";
+import { Rnd } from "react-rnd";
 
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
@@ -25,6 +27,13 @@ export default function PodSpacePage() {
   );
   const [srcVideoStream, setSrcVideoStream] = useState<MediaStream | undefined>(
     undefined
+  );
+  const [srcScreenShareStream, setSrcScreenShareStream] = useState<
+    MediaStream | undefined
+  >();
+  const latestSrcScreenShareStream = useRef<MediaStream | undefined>(undefined);
+  const [screenShareStatus, setScreenShareStatus] = useState<ScreenShareStatus>(
+    ScreenShareStatus.IDLE
   );
   const latestSrcAudioStream = useRef<MediaStream | undefined>(undefined);
   const latestSrcVideoStream = useRef<MediaStream | undefined>(undefined);
@@ -171,9 +180,26 @@ export default function PodSpacePage() {
         ws.current.onmessage = async (event) => {
           const res = JSON.parse(event.data.toString());
           if (res.type === "error") {
-            // console.log(res.data);
+            console.log(res.data);
           } else if (res.type === "success") {
             console.log(res.data);
+          } else if (res.type === "screenShareStarted") {
+            const userId = res.data.userId;
+            console.log(userId, "started a screen share");
+            setScreenShareStatus(ScreenShareStatus.PEERSHARING);
+            //disable the screen share option
+          } else if (res.type === "screenShareEnded") {
+            const userId = res.data;
+            setScreenShareStatus(ScreenShareStatus.IDLE);
+            setPeerStreamInfo((prev) => {
+              const newState = { ...prev };
+              const userStreams = newState[userId];
+              console.log("The peer stream is", userStreams);
+              userStreams.peerScreenShareVideoStream = null;
+              userStreams.peerScreenShareAudioStream = null;
+              return newState;
+            });
+            console.log(userId, "started a screen share");
           } else if (res.type === "disconnected") {
             const userId = res.data.userId;
             console.log("The user that left is", userId);
@@ -311,7 +337,14 @@ export default function PodSpacePage() {
                 newPeerConnection.onconnectionstatechange = () => {
                   console.log(newPeerConnection.signalingState);
                 };
-                //@note - THIS SHOULD BE HITTING BUT IS NOT HITTING.
+                // newPeerConnection.oniceconnectionstatechange = function () {
+                //   if (newPeerConnection.iceConnectionState == "disconnected") {
+                //     console.log(
+                //       "Disconnected, checking if the wifi of the user went off"
+                //     );
+                //     peerConnectionInfo.current.find
+                //   }
+                // };
                 newPeerConnection.onnegotiationneeded = async () => {
                   console.log(
                     "Negotiation is required. sending again the sdp offers."
@@ -452,7 +485,7 @@ export default function PodSpacePage() {
               }
 
               const remoteOffer = res.data.offer;
-              console.log("The remote offer is", remoteOffer);
+              // console.log("The remote offer is", remoteOffer);
 
               const config = {
                 iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -512,8 +545,6 @@ export default function PodSpacePage() {
 
               try {
                 // Get user media and add tracks
-                //Here the initialSrcAudio and videeoSTream are invalid, coz we already switched.
-                //use srcAudio and srcVideo useState variables.
                 if (
                   !latestSrcAudioStream.current ||
                   !latestSrcVideoStream.current
@@ -542,6 +573,8 @@ export default function PodSpacePage() {
                     latestSrcAudioStream.current
                   );
                 });
+
+                //Add all the videostream tracks
                 latestSrcVideoStream.current.getTracks().forEach((track) => {
                   if (
                     !latestSrcAudioStream.current ||
@@ -561,6 +594,20 @@ export default function PodSpacePage() {
                     latestSrcVideoStream.current
                   );
                 });
+                if (latestSrcScreenShareStream.current) {
+                  latestSrcScreenShareStream.current
+                    .getTracks()
+                    .forEach((track) => {
+                      if (latestSrcScreenShareStream.current) {
+                        newPeerConnection.addTrack(
+                          track,
+                          latestSrcScreenShareStream.current
+                        );
+                      }
+                    });
+                } else {
+                  console.log("NO SCREEN SHARE STREAM TO ADD IN THE OFFER");
+                }
               } catch (error) {
                 console.error("Error in initial offer handling:", error);
               }
@@ -727,6 +774,8 @@ export default function PodSpacePage() {
                   remoteStream
                 );
               } else if (remoteDeviceType === "peerScreenShare") {
+                //Make it so that this peer cannot share its screen now. until the already exisitng peer stop.
+                setScreenShareStatus(ScreenShareStatus.PEERSHARING);
                 console.log("Updating the peers screen share");
                 updatePeerStream(
                   res.data.fromId,
@@ -811,6 +860,9 @@ export default function PodSpacePage() {
     }
   }, [isLoaded, user]);
 
+  // //useEffect to handle the ref object of screen share
+  // useEffect(() => {}, [screenShareRecorderRef]);
+
   // Total participants = you + peers
   const totalParticipants = peerConnectionInfo.current.length + 1;
 
@@ -842,11 +894,35 @@ export default function PodSpacePage() {
             }}
           ></video>
         </div>
+        <Rnd
+          default={{
+            x: 0,
+            y: 0,
+            width: 1900,
+            height: 720,
+          }}
+        >
+          {/* Your screen share */}
+          {srcScreenShareStream && (
+            <video
+              className="z-90 w-5/12 h-4/5 border-2 border-white rounded-lg shadow-lg object-contain"
+              autoPlay
+              playsInline
+              muted
+              ref={(video) => {
+                if (video && srcScreenShareStream) {
+                  video.srcObject = srcScreenShareStream;
+                }
+              }}
+            ></video>
+          )}
+        </Rnd>
 
         {/* Peers' videos */}
         {peerStreamInfo &&
           peerConnectionInfo.current.map((peerInfo) => {
             const streams = peerStreamInfo[peerInfo.to] || {};
+            console.log("PEEER STREAM INFO IS", streams);
             return (
               <PeerVideo key={peerInfo.to} to={peerInfo.to} streams={streams} />
             );
@@ -854,27 +930,34 @@ export default function PodSpacePage() {
       </div>
 
       {/* Controls Section */}
-      <div className="p-5 w-full h-full flex items-center justify-center shadow-inner">
-        <Controls
-          audioInputOptions={audioInputOptions}
-          setAudioInputOptions={setAudioInputOptions}
-          setVideoOptions={setVideoOptions}
-          videoOptions={videoOptions}
-          peerConnectionInfo={peerConnectionInfo}
-          srcVideoStream={srcVideoStream}
-          setSrcVideoStream={setSrcVideoStream}
-          srcAudioStream={srcAudioStream}
-          setSrcAudioStream={setSrcAudioStream}
-          latestSrcAudioStream={latestSrcAudioStream}
-          latestSrcVideoStream={latestSrcVideoStream}
-          deviceTypeToID={deviceTypeToID}
-          audioRecorderRef={audioRecorder}
-          videoRecorderRef={videoRecorder}
-          userId={user?.id}
-          roomId={params.roomId as string}
-          screenShareRecorderRef={screenShareRecorderRef}
-        />
-      </div>
+      {isLoaded && user && (
+        <div className="p-5 w-full h-full flex items-center justify-center shadow-inner">
+          <Controls
+            audioInputOptions={audioInputOptions}
+            setAudioInputOptions={setAudioInputOptions}
+            setVideoOptions={setVideoOptions}
+            videoOptions={videoOptions}
+            peerConnectionInfo={peerConnectionInfo}
+            srcVideoStream={srcVideoStream}
+            setSrcVideoStream={setSrcVideoStream}
+            srcAudioStream={srcAudioStream}
+            setSrcAudioStream={setSrcAudioStream}
+            latestSrcAudioStream={latestSrcAudioStream}
+            latestSrcVideoStream={latestSrcVideoStream}
+            deviceTypeToID={deviceTypeToID}
+            audioRecorderRef={audioRecorder}
+            videoRecorderRef={videoRecorder}
+            userId={user.id}
+            roomId={params.roomId as string}
+            screenShareRecorderRef={screenShareRecorderRef}
+            srcScreenShareStream={srcScreenShareStream}
+            setSrcScreenShareStream={setSrcScreenShareStream}
+            screenShareStatus={screenShareStatus}
+            setScreenShareStatus={setScreenShareStatus}
+            latestSrcScreenShareStream={latestSrcScreenShareStream}
+          />
+        </div>
+      )}
     </div>
   );
 }

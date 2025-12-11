@@ -1,4 +1,5 @@
-import { Dispatch, SetStateAction } from "react";
+import React, { Dispatch, SetStateAction } from "react";
+import { ScreenShareStatus } from "@/utils/exports";
 export async function getDisplayMedia() {
   try {
     const DisplayMedia = await navigator.mediaDevices.getDisplayMedia({
@@ -17,7 +18,12 @@ export async function startScreenShare(
   deviceTypeToID: React.RefObject<Map<string, string>>,
   screenShareRecorderRef: React.RefObject<MediaRecorder | null>,
   webWorkerRef: React.RefObject<Worker | null>,
-  userId: string | undefined
+  userId: string | undefined,
+  roomId: string | undefined,
+  setSrcScreenShareStream: Dispatch<SetStateAction<MediaStream | undefined>>,
+  setScreenShareStatus: Dispatch<SetStateAction<ScreenShareStatus>>,
+  ws: React.RefObject<WebSocket | null>,
+  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>
 ) {
   try {
     if (!userId) {
@@ -28,8 +34,30 @@ export async function startScreenShare(
       audio: true,
       video: true,
     });
+    displayMedia.getVideoTracks().forEach((track) => {
+      track.onended = () => {
+        //Send the websocket message to end to all the users in the room
+        //set the srcScreen share as undefined
+        console.log("Triggered ended track");
+        setSrcScreenShareStream(undefined);
+        latestSrcScreenShareStream.current = undefined;
+        setScreenShareStatus(ScreenShareStatus.IDLE);
+        //Send an ending status
+        ws.current?.send(
+          JSON.stringify({
+            event: "screenShareEnded",
+            data: {
+              userId: userId,
+              roomId: roomId,
+            },
+          })
+        );
+      };
+    });
 
     console.log("The displayMedia is", displayMedia);
+    latestSrcScreenShareStream.current = displayMedia;
+    setSrcScreenShareStream(displayMedia);
     screenShareRecorderRef.current = new MediaRecorder(displayMedia);
     handleScreenShareRecording(screenShareRecorderRef, webWorkerRef, userId);
     deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
@@ -39,6 +67,17 @@ export async function startScreenShare(
         pc.addTrack(track, displayMedia);
       });
     });
+    console.log("Sending the started msg with userid as", userId);
+    ws.current?.send(
+      JSON.stringify({
+        event: "startScreenShare",
+        data: {
+          userId: userId,
+          roomId: roomId,
+        },
+      })
+    );
+    setScreenShareStatus(ScreenShareStatus.SHARING);
   } catch (e) {
     console.log(e);
   }

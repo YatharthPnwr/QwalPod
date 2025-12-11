@@ -6,6 +6,8 @@ import {
   MicOff,
   CameraOff,
   ScreenShareIcon,
+  ScreenShareOff,
+  Ban,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,6 +28,7 @@ import {
 import { useMediaPredicate } from "react-media-hook";
 import { useRouter } from "next/navigation";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
+import { ScreenShareStatus } from "@/utils/exports";
 interface peerConnectionInfo {
   to: string;
   peerConnection: RTCPeerConnection;
@@ -51,6 +54,11 @@ interface ControlsInput {
   screenShareRecorderRef: React.RefObject<MediaRecorder | null>;
   roomId: string | undefined;
   userId: string | undefined;
+  srcScreenShareStream: MediaStream | undefined;
+  setSrcScreenShareStream: Dispatch<SetStateAction<MediaStream | undefined>>;
+  screenShareStatus: ScreenShareStatus;
+  setScreenShareStatus: Dispatch<SetStateAction<ScreenShareStatus>>;
+  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>;
 }
 export default function Controls(props: ControlsInput) {
   const [micOn, setMicOn] = useState<boolean>(true);
@@ -80,10 +88,22 @@ export default function Controls(props: ControlsInput) {
     );
     if (type === "audioinput") {
       props.setAudioInputOptions(connectedTypeDevices);
-      setSrcAudioInput(connectedTypeDevices.at(0)?.label);
+      console.log(
+        "Setting the srcAudio input as, ",
+        connectedTypeDevices.at(0)?.label
+      );
+      if (srcAudioInput == undefined) {
+        setSrcAudioInput(connectedTypeDevices.at(0)?.label);
+      }
     } else if (type === "videoinput") {
       props.setVideoOptions(connectedTypeDevices);
-      setSrcVideoInput(connectedTypeDevices.at(0)?.label);
+      console.log(
+        "Setting the srcVideo input as, ",
+        connectedTypeDevices.at(0)?.label
+      );
+      if (srcVideoInput == undefined) {
+        setSrcVideoInput(connectedTypeDevices.at(0)?.label);
+      }
     }
   }
 
@@ -96,7 +116,7 @@ export default function Controls(props: ControlsInput) {
     };
     audioOptions();
     videoOptions();
-  }, []);
+  }, [props.srcAudioStream, props.srcVideoStream]);
 
   return (
     <>
@@ -304,36 +324,116 @@ export default function Controls(props: ControlsInput) {
               </Button>
             </div>
           </div>
-          <div className="gap-0 Video border-2 rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center">
+          <div className="gap-0 screenShare border-2 rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center">
             <Button
               variant="outline"
               className="w-full h-full"
               onClick={async () => {
-                await startScreenShare(
-                  props.peerConnectionInfo,
-                  props.deviceTypeToID,
-                  props.screenShareRecorderRef,
-                  webWorkerRef,
-                  props.userId
-                );
+                console.log("Screen share status is", props.screenShareStatus);
+                if (props.screenShareStatus === ScreenShareStatus.IDLE) {
+                  console.log("Starting screen share");
+                  await startScreenShare(
+                    props.peerConnectionInfo,
+                    props.deviceTypeToID,
+                    props.screenShareRecorderRef,
+                    webWorkerRef,
+                    props.userId,
+                    props.roomId,
+                    props.setSrcScreenShareStream,
+                    props.setScreenShareStatus,
+                    ws,
+                    props.latestSrcScreenShareStream
+                  );
+                } else if (
+                  props.screenShareStatus === ScreenShareStatus.SHARING
+                ) {
+                  if (!props.srcScreenShareStream) {
+                    console.log("No src Screen share stream found");
+                    return;
+                  }
+                  console.log("Stopping screen share");
+                  props.srcScreenShareStream
+                    .getTracks()
+                    .forEach((track) => track.stop());
+                  props.setSrcScreenShareStream(undefined);
+                  ws.current?.send(
+                    JSON.stringify({
+                      event: "screenShareEnded",
+                      data: {
+                        roomId: props.roomId,
+                        userId: props.userId,
+                      },
+                    })
+                  );
+                  props.setScreenShareStatus(ScreenShareStatus.IDLE);
+                } else if (
+                  props.screenShareStatus === ScreenShareStatus.PEERSHARING
+                ) {
+                  console.log(
+                    "Cannot share while a peer is sharing their screen"
+                  );
+                }
               }}
             >
-              <ScreenShareIcon
-                className="size-6"
-                size={
-                  is2xl
-                    ? 35
-                    : isXl
-                    ? 30
-                    : isLg
-                    ? 30
-                    : isMd
-                    ? 25
-                    : isSm
-                    ? 25
-                    : 20
-                }
-              />
+              {/* When no one is sharing */}
+              {props.screenShareStatus === ScreenShareStatus.IDLE && (
+                <ScreenShareIcon
+                  className="size-6"
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
+                />
+              )}
+
+              {/* when the user is sharing */}
+              {props.screenShareStatus === ScreenShareStatus.SHARING && (
+                <ScreenShareOff
+                  className="size-6"
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
+                />
+              )}
+
+              {/* When a peer is sharing */}
+              {props.screenShareStatus === ScreenShareStatus.PEERSHARING && (
+                <Ban
+                  className="size-6"
+                  size={
+                    is2xl
+                      ? 35
+                      : isXl
+                      ? 30
+                      : isLg
+                      ? 30
+                      : isMd
+                      ? 25
+                      : isSm
+                      ? 25
+                      : 20
+                  }
+                />
+              )}
             </Button>
           </div>
 

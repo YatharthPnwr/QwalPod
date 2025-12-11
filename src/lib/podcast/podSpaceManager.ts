@@ -6,6 +6,7 @@ interface Room {
   roomId: string;
   users: User[];
   creator: WSWebSocket;
+  screenShareUser: string;
 }
 
 interface WsSuccessResponse {
@@ -31,6 +32,7 @@ export class podSpaceManager {
       roomId: roomId,
       users: [],
       creator: ws,
+      screenShareUser: "",
     };
     this.rooms.push(newRoom);
     return {
@@ -180,6 +182,120 @@ export class podSpaceManager {
         })
       );
     });
+  }
+
+  public async startScreenShare(roomId: string, userId: string) {
+    //check for valid room,
+    const currentPod = this.rooms.find((room) => {
+      return room.roomId === roomId;
+    });
+    if (!currentPod) {
+      return {
+        type: "error",
+        data: "Failed to find room",
+      } as const satisfies WsResponse;
+    }
+
+    //Check for valid userId
+    const targetPeer = currentPod?.users.find((usr) => {
+      return usr.userId == userId;
+    });
+    if (!targetPeer) {
+      return {
+        type: "error",
+        data: "Could not find the peer",
+      };
+    }
+    //Check if anyone else is sharing the screen already in the room
+    const isAnyoneSharing = !(currentPod.screenShareUser == "");
+    if (!isAnyoneSharing) {
+      //If not then send the startedScreenShareEvent to everyone in that room
+      currentPod.users.forEach((usr) => {
+        if (usr.userId === userId) {
+          return;
+        }
+        usr.webSocket.send(
+          JSON.stringify({
+            type: "screenShareStarted",
+            data: {
+              userId: userId,
+            },
+          })
+        );
+      });
+      //Set the currentSharingScreen user as the user
+      currentPod.screenShareUser = userId;
+      //Send the success msg back to the user
+      return {
+        type: "success",
+        data: "Screen share msg sent to everyone in the room",
+      };
+    } else {
+      return {
+        type: "error",
+        data: "Cannot share while someone in the room is already sharing",
+      };
+    }
+  }
+
+  public async endScreenShare(roomId: string, userId: string) {
+    //check for valid room,
+    const currentPod = this.rooms.find((room) => {
+      return room.roomId === roomId;
+    });
+    if (!currentPod) {
+      return {
+        type: "error",
+        data: "Failed to find room",
+      } as const satisfies WsResponse;
+    }
+
+    //Check for valid userId
+    const targetPeer = currentPod?.users.find((usr) => {
+      return usr.userId == userId;
+    });
+    if (!targetPeer) {
+      return {
+        type: "error",
+        data: "Could not find the peer",
+      };
+    }
+
+    const currentSharingUser = currentPod.screenShareUser;
+    if (currentSharingUser !== currentSharingUser) {
+      console.log(
+        "Invalid user screen share shutdown request!, the current sharing user is",
+        currentSharingUser
+      );
+      return {
+        type: "error",
+        data: "Invalid user req to shut down screen share",
+      };
+    }
+    if (currentSharingUser == "") {
+      return {
+        type: "success",
+        data: "Already shut down the screenShare",
+      };
+    }
+    //set the current screen sharing participant as noone
+    currentPod.screenShareUser = "";
+    //stop the screen share msg to all the users
+    currentPod.users.forEach((usr) => {
+      if (usr.userId === userId) {
+        return;
+      }
+      usr.webSocket.send(
+        JSON.stringify({
+          type: "screenShareEnded",
+          data: userId,
+        })
+      );
+    });
+    return {
+      type: "success",
+      data: "Send the closing screen share msg to everyone in the room",
+    };
   }
 
   public async answer(

@@ -84,6 +84,15 @@ nextApp.prepare().then(() => {
         );
         ws.send(res);
       }
+      if (event == "startScreenShare") {
+        const { roomId, userId } = data;
+        console.log("User ID STARTING IS,", userId);
+        ws.send(JSON.stringify(await podMan.startScreenShare(roomId, userId)));
+      }
+      if (event == "screenShareEnded") {
+        const { roomId, userId } = data;
+        ws.send(JSON.stringify(await podMan.endScreenShare(roomId, userId)));
+      }
 
       if (event == "disconnecting") {
         const roomId = data.roomId;
