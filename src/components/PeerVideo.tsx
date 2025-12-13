@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { Rnd } from "react-rnd";
+import { createPortal } from "react-dom";
 
 interface peerStreamInfo {
   peerAudioStream: MediaStream | null;
@@ -60,17 +62,32 @@ export default function PeerVideo({
       />
       {/* Peer Audio */}
       <audio autoPlay ref={peerAudioRef}></audio>
-
-      {/* Peer screen share video */}
-      {streams.peerScreenShareVideoStream && (
-        <video
-          className="absolute top-2 right-2 w-40 h-24 border-2 border-white rounded-lg shadow-lg"
-          autoPlay
-          playsInline
-          muted
-          ref={peerScreenShareVideoRef}
-        ></video>
-      )}
+      {streams.peerScreenShareVideoStream &&
+        createPortal(
+          <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+            <Rnd
+              className="pointer-events-auto"
+              default={{
+                x: window.innerWidth / 2 - window.innerWidth * 0.4,
+                y: window.innerHeight / 2 - window.innerHeight * 0.3,
+                width: window.innerWidth * 0.8,
+                height: window.innerHeight * 0.6,
+              }}
+              bounds="window"
+              minWidth={300}
+              minHeight={200}
+            >
+              <video
+                className="w-full h-full border-2 border-white rounded-lg shadow-lg object-contain bg-black"
+                autoPlay
+                playsInline
+                muted
+                ref={peerScreenShareVideoRef}
+              ></video>
+            </Rnd>
+          </div>,
+          document.body
+        )}
 
       {/* Peer screen share audio */}
       {streams.peerScreenShareAudioStream && (

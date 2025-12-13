@@ -894,31 +894,42 @@ export default function PodSpacePage() {
             }}
           ></video>
         </div>
-        <Rnd
-          default={{
-            x: 0,
-            y: 0,
-            width: 1900,
-            height: 720,
-          }}
-        >
-          {/* Your screen share */}
-          {srcScreenShareStream && (
-            <video
-              className="z-90 w-5/12 h-4/5 border-2 border-white rounded-lg shadow-lg object-contain"
-              autoPlay
-              playsInline
-              muted
-              ref={(video) => {
-                if (video && srcScreenShareStream) {
-                  video.srcObject = srcScreenShareStream;
-                }
+        {/*Src screen share stream*/}
+        {srcScreenShareStream && (
+          <div className="fixed z-40 flex items-center justify-center pointer-events-none">
+            <Rnd
+              className="pointer-events-auto"
+              default={{
+                // Bring x and y to center first, then translate x and y such
+                //that the Rnd component comes to the center of the screen
+                x: window.innerWidth / 2 - window.innerWidth * 0.4,
+                y: window.innerHeight / 2 - window.innerHeight * 0.3,
+                width: window.innerWidth * 0.8,
+                height: window.innerHeight * 0.6,
               }}
-            ></video>
-          )}
-        </Rnd>
+              bounds="window"
+              minWidth={300}
+              minHeight={200}
+            >
+              <video
+                className="w-full h-full border-2 border-white rounded-lg shadow-lg object-contain bg-black"
+                autoPlay
+                playsInline
+                muted
+                ref={(video) => {
+                  if (video && srcScreenShareStream) {
+                    video.srcObject = srcScreenShareStream;
+                  }
+                }}
+              ></video>
+            </Rnd>
+          </div>
+        )}
+
+        {/*Peer screen share stream*/}
 
         {/* Peers' videos */}
+
         {peerStreamInfo &&
           peerConnectionInfo.current.map((peerInfo) => {
             const streams = peerStreamInfo[peerInfo.to] || {};
@@ -931,7 +942,7 @@ export default function PodSpacePage() {
 
       {/* Controls Section */}
       {isLoaded && user && (
-        <div className="p-5 w-full h-full flex items-center justify-center shadow-inner">
+        <div className="z-50 p-5 w-full h-full flex items-center justify-center shadow-inner">
           <Controls
             audioInputOptions={audioInputOptions}
             setAudioInputOptions={setAudioInputOptions}
