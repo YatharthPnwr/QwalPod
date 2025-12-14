@@ -464,6 +464,9 @@ export default function Controls(props: ControlsInput) {
                 props.srcVideoStream?.getTracks().forEach((track) => {
                   track.stop();
                 });
+                props.srcScreenShareStream?.getTracks().forEach((track) => {
+                  track.stop();
+                });
 
                 //close all the peerConnections.
                 props.peerConnectionInfo.current?.forEach((peer) => {

@@ -61,6 +61,7 @@ export async function startScreenShare(
     screenShareRecorderRef.current = new MediaRecorder(displayMedia);
     handleScreenShareRecording(screenShareRecorderRef, webWorkerRef, userId);
     deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
+    console.log("THE UPDATED DEVICETYPETOID IS", deviceTypeToID.current);
     peerConnectionInfo.current.forEach((peer) => {
       const pc = peer.peerConnection;
       displayMedia.getTracks().forEach((track) => {
@@ -307,6 +308,11 @@ export async function switchMedia(props: switchMediaInputs) {
         props.latestSrcAudioStream.current
       );
       //Update the local mapping
+      props.deviceTypeToID.current.forEach((value, key) => {
+        if (value == "peerAudio") {
+          props.deviceTypeToID.current.delete(key);
+        }
+      });
       props.deviceTypeToID.current.set(newAudioStream.id, "peerAudio");
 
       // Update peer connections
@@ -376,6 +382,11 @@ export async function switchMedia(props: switchMediaInputs) {
       props.setSrcVideoStream(newVideoStream);
       props.latestSrcVideoStream.current = newVideoStream;
       //Update the local mapping
+      props.deviceTypeToID.current.forEach((value, key) => {
+        if (value == "peerVideo") {
+          props.deviceTypeToID.current.delete(key);
+        }
+      });
       props.deviceTypeToID.current.set(newVideoStream.id, "peerVideo");
 
       // Update peer connections
@@ -383,7 +394,14 @@ export async function switchMedia(props: switchMediaInputs) {
         const peerConnection = peer.peerConnection;
         peerConnection.getSenders().forEach((sender) => {
           if (sender.track?.kind === "video") {
-            sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
+            //Do not replace the screen share video stream
+            console.log(
+              "the device type to id is",
+              props.deviceTypeToID.current
+            );
+            if (!sender.track.label.includes("screen")) {
+              sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
+            }
           }
         });
       });

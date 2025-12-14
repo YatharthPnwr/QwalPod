@@ -443,6 +443,10 @@ export default function PodSpacePage() {
               existingPeer.remoteDeviceTypeToId = new Map(
                 Object.entries(res.data.streamMetaData as [string, string])
               );
+              console.log(
+                "Setting the existing remore device type to Id as",
+                existingPeer.remoteDeviceTypeToId
+              );
 
               try {
                 // Set the remote description on the existing connection
@@ -515,6 +519,10 @@ export default function PodSpacePage() {
                 console.log("Received remote track from", fromId);
                 const remoteStream = event.streams[0];
                 const remoteStreamId = remoteStream.id;
+                console.log(
+                  "THe EXISTING USERS REMOVE DEVICE TYPE TO ID IS, ",
+                  newJoinee.remoteDeviceTypeToId
+                );
                 const remoteDeviceType =
                   newJoinee.remoteDeviceTypeToId.get(remoteStreamId);
 
