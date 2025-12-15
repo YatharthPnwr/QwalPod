@@ -128,15 +128,19 @@ function consolidateFiles(meetingId: string, userId: string) {
           userId
         );
         const thumbnailFileName = getFinalFileName("THUMBNAIL", userId);
-        const thumbnail = await generateThumbnail(consolidatedVideo);
-        console.log("Consolidated thumbnail file, uploading to cloud");
-        await saveToS3(
-          thumbnail,
-          "THUMBNAIL",
-          thumbnailFileName,
-          meetingId,
-          userId
-        );
+        try {
+          const thumbnail = await generateThumbnail(consolidatedVideo);
+          console.log("Consolidated thumbnail file, uploading to cloud");
+          await saveToS3(
+            thumbnail,
+            "THUMBNAIL",
+            thumbnailFileName,
+            meetingId,
+            userId
+          );
+        } catch (e) {
+          console.log("error is", e);
+        }
       };
       putRequest.onerror = (msg) => {
         console.error((msg.target as IDBOpenDBRequest).error);
@@ -188,21 +192,34 @@ async function getFFmpeg() {
 //Function to get a thumbnail
 async function generateThumbnail(file: Blob) {
   const ffmpeg = await getFFmpeg();
+  console.log("THE FILE RECEIVED TO GENERATE THUMBNAIL IS", file);
+  //Blob {size: 2970296, type: 'video/webm;codecs=vp8'}
 
-  await ffmpeg.load();
-
-  await ffmpeg.writeFile("input.mp4", await fetchFile(file));
+  await ffmpeg.writeFile("input.webm", await fetchFile(file));
+  const file_written = await ffmpeg.readFile("input.webm");
+  console.log("THE WRITTEN FILE IS", file_written);
   await ffmpeg.exec([
     "-i",
-    "input.mp4",
+    "input.webm",
     "-ss",
-    "00:00:10",
+    "00:00:04",
     "-vframes",
     "1",
+    "-q:v",
+    "12",
     "thumb.jpg",
   ]);
+
   const data = await ffmpeg.readFile("thumb.jpg");
-  return new Blob([new Uint8Array(data as Uint8Array)], { type: "image/jpeg" });
+  console.log("The final file is ", data);
+
+  // Clean up temporary files
+  await ffmpeg.deleteFile("input.webm");
+  await ffmpeg.deleteFile("thumb.jpg");
+
+  return new Blob([new Uint8Array(data as Uint8Array)], {
+    type: "image/jpeg",
+  });
 }
 
 //Function to get the final video file name

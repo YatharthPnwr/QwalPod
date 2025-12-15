@@ -1,13 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { AudioLines, FileVideo, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { AvatarFallback } from "@radix-ui/react-avatar";
 import SkeletonCard from "@/components/ui/SkeletonCard";
+import {
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/nextjs";
+
 interface userLinks {
   userId: string;
   userName: string;
@@ -19,6 +27,8 @@ interface userLinks {
 export default function PodAssets() {
   const params = useParams<{ roomId: string }>();
   const { roomId } = params;
+  const router = useRouter();
+
   const [loaded, setLoaded] = useState<boolean>(false);
   console.log("The room id is", roomId);
   const [meetingURLS, setMeetingURLS] = useState<{
@@ -41,6 +51,58 @@ export default function PodAssets() {
   if (!loaded) {
     return (
       <>
+        <div className="flex items-center justify-center flex-col mb-10">
+          <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
+            <div className="cursor-pointer container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+              <div
+                onClick={() => {
+                  router.push("/");
+                  return;
+                }}
+              >
+                QwalPod
+              </div>
+              <nav className="flex items-center gap-4 lg:gap-8">
+                <a className="cursor-pointer text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                  <div
+                    onClick={() => {
+                      router.push("/dashboard");
+                      return;
+                    }}
+                  >
+                    Join a Pod
+                  </div>
+                  <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+                </a>
+
+                <a className="text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                  <div
+                    onClick={() => {
+                      router.push("/dashboard/recordings");
+                      return;
+                    }}
+                  >
+                    My Recordings
+                  </div>
+                  <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+                </a>
+              </nav>
+              <div className="cursor-pointer items-center gap-4">
+                <div className="flex items-center gap-4">
+                  <SignedOut>
+                    <SignInButton />
+                    <SignUpButton>
+                      <Button>Sign up</Button>
+                    </SignUpButton>
+                  </SignedOut>
+                  <SignedIn>
+                    <UserButton />
+                  </SignedIn>
+                </div>
+              </div>
+            </div>
+          </header>
+        </div>
         <div className="grid grid-cols-3 w-full p-11 place-items-center gap-5">
           <SkeletonCard></SkeletonCard>
           <SkeletonCard></SkeletonCard>
@@ -51,6 +113,58 @@ export default function PodAssets() {
   }
   return (
     <>
+      <div className="flex items-center justify-center flex-col">
+        <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
+          <div className="cursor-pointer container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
+            <div
+              onClick={() => {
+                router.push("/");
+                return;
+              }}
+            >
+              QwalPod
+            </div>
+            <nav className="hidden items-center gap-4 md:flex lg:gap-8">
+              <a className="cursor-pointer text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                <div
+                  onClick={() => {
+                    router.push("/dashboard");
+                    return;
+                  }}
+                >
+                  Join a Pod
+                </div>
+                <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+              </a>
+
+              <a className="text-muted-foreground hover:text-foreground group relative text-xs font-medium transition-colors lg:text-sm hover:cursor-pointer">
+                <div
+                  onClick={() => {
+                    router.push("/dashboard/recordings");
+                    return;
+                  }}
+                >
+                  My Recordings
+                </div>
+                <span className="bg-primary absolute -bottom-1 left-0 h-0.5 w-0 transition-all duration-300 group-hover:w-full"></span>
+              </a>
+            </nav>
+            <div className="hidden cursor-pointer items-center gap-4 md:flex">
+              <div className="flex items-center gap-4">
+                <SignedOut>
+                  <SignInButton />
+                  <SignUpButton>
+                    <Button>Sign up</Button>
+                  </SignUpButton>
+                </SignedOut>
+                <SignedIn>
+                  <UserButton />
+                </SignedIn>
+              </div>
+            </div>
+          </div>
+        </header>
+      </div>
       <div className="grid grid-cols-3 w-full p-11 place-items-center gap-5">
         <div className="h-full grid w-full p-11 place-items-center gap-5">
           {meetingURLS &&

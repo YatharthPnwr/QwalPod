@@ -19,10 +19,6 @@ import { Rnd } from "react-rnd";
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
   const isSm = useMediaPredicate("(min-width: 640px)"); // ≥640px
-  const isMd = useMediaPredicate("(min-width: 768px)"); // ≥768px
-  const isLg = useMediaPredicate("(min-width: 1024px)"); // ≥1024px
-  const isXl = useMediaPredicate("(min-width: 1280px)");
-  const is2xl = useMediaPredicate("(min-width: 1536px)"); // ≥1536px
   const router = useRouter();
   const params = useParams();
   const roomId = params.roomId;
