@@ -121,76 +121,80 @@ export default function Controls(props: ControlsInput) {
   return (
     <>
       <div className="w-full h-full flex items-center justify-center">
-        <div className="h-4/5 rounded-xl grid grid-cols-4 gap-x-0 sm:w-2/3 md:w-3/5 lg:w-5/12 xl:8/12 items-center justify-items-center bg-popover">
-          <div className="gap-0 AudioInput border-2 rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center p-1">
-            <div className="flex-2/5 flex items-center justify-center w-full h-full">
-              <div className="flex items-center justify-center w-full h-full">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild></DropdownMenuTrigger>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="w-9/12 h-6/12">
-                      <Ellipsis
-                        className="size-6"
-                        size={
-                          is2xl
-                            ? 40
-                            : isXl
-                            ? 35
-                            : isLg
-                            ? 35
-                            : isMd
-                            ? 35
-                            : isSm
-                            ? 25
-                            : 20
-                        }
-                      />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56">
-                    <DropdownMenuLabel>
-                      Select Audio input device
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuRadioGroup
-                      value={srcAudioInput}
-                      onValueChange={setSrcAudioInput}
-                    >
-                      {props.audioInputOptions?.map((audioOption, key) => (
-                        <DropdownMenuRadioItem
-                          key={key}
-                          value={audioOption.label}
-                          onClick={async () => {
-                            await switchMedia({
-                              kind: "audioinput",
-                              deviceId: audioOption.deviceId,
-                              srcVideoStream: props.srcVideoStream,
-                              setSrcVideoStream: props.setSrcVideoStream,
-                              srcAudioStream: props.srcAudioStream,
-                              setSrcAudioStream: props.setSrcAudioStream,
-                              latestSrcAudioStream: props.latestSrcAudioStream,
-                              latestSrcVideoStream: props.latestSrcVideoStream,
-                              peerConnectionInfo: props.peerConnectionInfo,
-                              audioRecorderRef: props.audioRecorderRef,
-                              videoRecorderRef: props.videoRecorderRef,
-                              webWorkerRef: webWorkerRef,
-                              userId: props.userId,
-                              deviceTypeToID: props.deviceTypeToID,
-                            });
-                          }}
-                        >
-                          {audioOption.label}
-                        </DropdownMenuRadioItem>
-                      ))}
-                    </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+        <div className="min-h-4/5 w-11/12 sm:w-9/12 md:w-8/12 md:gap-0 lg:w-7/12 xl:w-6/12 rounded-xl grid grid-cols-4 gap-2 items-center justify-items-center bg-popover">
+          <div className="gap-0 AudioInput border-2 rounded-xl min-w-9/12 max-w-11/12 md:w-10/12 lg:w-10/12 h-10/12 flex items-center justify-center p-1">
+            {isSm && (
+              <div className="flex-2/5 flex items-center justify-center w-full h-full">
+                <div className="flex items-center justify-center w-full h-full">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-9/12 h-6/12">
+                        <Ellipsis
+                          className="size-6"
+                          size={
+                            is2xl
+                              ? 40
+                              : isXl
+                              ? 35
+                              : isLg
+                              ? 35
+                              : isMd
+                              ? 35
+                              : isSm
+                              ? 25
+                              : 20
+                          }
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      <DropdownMenuLabel>
+                        Select Audio input device
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup
+                        value={srcAudioInput}
+                        onValueChange={setSrcAudioInput}
+                      >
+                        {props.audioInputOptions?.map((audioOption, key) => (
+                          <DropdownMenuRadioItem
+                            key={key}
+                            value={audioOption.label}
+                            onClick={async () => {
+                              await switchMedia({
+                                kind: "audioinput",
+                                deviceId: audioOption.deviceId,
+                                srcVideoStream: props.srcVideoStream,
+                                setSrcVideoStream: props.setSrcVideoStream,
+                                srcAudioStream: props.srcAudioStream,
+                                setSrcAudioStream: props.setSrcAudioStream,
+                                latestSrcAudioStream:
+                                  props.latestSrcAudioStream,
+                                latestSrcVideoStream:
+                                  props.latestSrcVideoStream,
+                                peerConnectionInfo: props.peerConnectionInfo,
+                                audioRecorderRef: props.audioRecorderRef,
+                                videoRecorderRef: props.videoRecorderRef,
+                                webWorkerRef: webWorkerRef,
+                                userId: props.userId,
+                                deviceTypeToID: props.deviceTypeToID,
+                              });
+                            }}
+                          >
+                            {audioOption.label}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
-            <div className="px-0 m-0 flex-3/5 w-full h-full items-center justify-center flex">
+            )}
+            <div className="px-0 m-0 flex-3/5 h-full items-center justify-center flex">
               <Button
                 variant="outline"
-                className="h-11/12 w-10/12 rounded-full"
+                className="h-11/12 w-8/12 rounded-full"
                 onClick={() => {
                   if (micOn) {
                     // Toggle all peer connections
@@ -224,73 +228,75 @@ export default function Controls(props: ControlsInput) {
               </Button>
             </div>
           </div>
-          <div className="gap-0 Video border-2 rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center p-1">
-            <div className="flex-2/5 flex items-center justify-center w-full h-full">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="w-9/12 h-6/12">
-                    <Ellipsis
-                      className="size-6"
-                      size={
-                        is2xl
-                          ? 40
-                          : isXl
-                          ? 35
-                          : isLg
-                          ? 35
-                          : isMd
-                          ? 35
-                          : isSm
-                          ? 25
-                          : 20
-                      }
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56">
-                  <DropdownMenuLabel>
-                    Select Video input device
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuRadioGroup
-                    value={srcVideoInput}
-                    onValueChange={setSrcVideoInput}
-                  >
-                    {props.videoOptions?.map((videoOption, key) => (
-                      <DropdownMenuRadioItem
-                        key={key}
-                        value={videoOption.label}
-                        className="my-2 hover:bg-cyan-950 hover:rounded-xs"
-                        onClick={async () => {
-                          await switchMedia({
-                            kind: "videoinput",
-                            deviceId: videoOption.deviceId,
-                            srcVideoStream: props.srcVideoStream,
-                            setSrcVideoStream: props.setSrcVideoStream,
-                            srcAudioStream: props.srcAudioStream,
-                            setSrcAudioStream: props.setSrcAudioStream,
-                            latestSrcAudioStream: props.latestSrcAudioStream,
-                            latestSrcVideoStream: props.latestSrcVideoStream,
-                            peerConnectionInfo: props.peerConnectionInfo,
-                            audioRecorderRef: props.audioRecorderRef,
-                            videoRecorderRef: props.videoRecorderRef,
-                            webWorkerRef: webWorkerRef,
-                            userId: props.userId,
-                            deviceTypeToID: props.deviceTypeToID,
-                          });
-                        }}
-                      >
-                        {videoOption.label}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div className="px-0 m-0 flex-3/5 w-full h-full items-center justify-center flex">
+          <div className="gap-0 Video border-2 rounded-xl min-w-9/12 max-w-11/12 md:w-10/12 lg:w-10/12 h-10/12 flex items-center justify-center p-1">
+            {isSm && (
+              <div className="flex-2/5 flex items-center justify-center w-full h-full">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="w-9/12 h-6/12">
+                      <Ellipsis
+                        className="size-6"
+                        size={
+                          is2xl
+                            ? 40
+                            : isXl
+                            ? 35
+                            : isLg
+                            ? 35
+                            : isMd
+                            ? 35
+                            : isSm
+                            ? 25
+                            : 20
+                        }
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56">
+                    <DropdownMenuLabel>
+                      Select Video input device
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      value={srcVideoInput}
+                      onValueChange={setSrcVideoInput}
+                    >
+                      {props.videoOptions?.map((videoOption, key) => (
+                        <DropdownMenuRadioItem
+                          key={key}
+                          value={videoOption.label}
+                          className="my-2 hover:bg-cyan-950 hover:rounded-xs"
+                          onClick={async () => {
+                            await switchMedia({
+                              kind: "videoinput",
+                              deviceId: videoOption.deviceId,
+                              srcVideoStream: props.srcVideoStream,
+                              setSrcVideoStream: props.setSrcVideoStream,
+                              srcAudioStream: props.srcAudioStream,
+                              setSrcAudioStream: props.setSrcAudioStream,
+                              latestSrcAudioStream: props.latestSrcAudioStream,
+                              latestSrcVideoStream: props.latestSrcVideoStream,
+                              peerConnectionInfo: props.peerConnectionInfo,
+                              audioRecorderRef: props.audioRecorderRef,
+                              videoRecorderRef: props.videoRecorderRef,
+                              webWorkerRef: webWorkerRef,
+                              userId: props.userId,
+                              deviceTypeToID: props.deviceTypeToID,
+                            });
+                          }}
+                        >
+                          {videoOption.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+            <div className="px-0 m-0 flex-3/5 h-full items-center justify-center flex">
               <Button
                 variant="outline"
-                className="h-11/12 w-10/12 rounded-full"
+                className="h-11/12 w-8/12 rounded-full"
                 onClick={() => {
                   if (videoOn) {
                     // Turn off video
@@ -324,7 +330,7 @@ export default function Controls(props: ControlsInput) {
               </Button>
             </div>
           </div>
-          <div className="gap-0 screenShare border-2 rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center">
+          <div className="gap-0 screenShare border-2 rounded-xl min-w-11/12 md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center">
             <Button
               variant="outline"
               className="w-full h-full"
@@ -437,7 +443,7 @@ export default function Controls(props: ControlsInput) {
             </Button>
           </div>
 
-          <div className="bg-red-600 gap-0 StopPod  rounded-xl w-full md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center p-0">
+          <div className="bg-red-600 gap-0 StopPod  rounded-xl min-w-11/12 md:w-2/3 lg:w-10/12 h-10/12 flex items-center justify-center p-0">
             <Button
               variant="outline"
               className=" w-full h-full rounded-xl"

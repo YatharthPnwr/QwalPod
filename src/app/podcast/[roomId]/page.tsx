@@ -13,10 +13,16 @@ import { useParams, useRouter } from "next/navigation";
 import { WebSocketConnHandle } from "@/utils/functions/waitForConnection";
 import PeerVideo from "@/components/PeerVideo";
 import { ScreenShareStatus } from "@/utils/exports";
+import { useMediaPredicate } from "react-media-hook";
 import { Rnd } from "react-rnd";
 
 export default function PodSpacePage() {
   const { isLoaded, user } = useUser();
+  const isSm = useMediaPredicate("(min-width: 640px)"); // ≥640px
+  const isMd = useMediaPredicate("(min-width: 768px)"); // ≥768px
+  const isLg = useMediaPredicate("(min-width: 1024px)"); // ≥1024px
+  const isXl = useMediaPredicate("(min-width: 1280px)");
+  const is2xl = useMediaPredicate("(min-width: 1536px)"); // ≥1536px
   const router = useRouter();
   const params = useParams();
   const roomId = params.roomId;
@@ -342,7 +348,16 @@ export default function PodSpacePage() {
                 //     console.log(
                 //       "Disconnected, checking if the wifi of the user went off"
                 //     );
-                //     peerConnectionInfo.current.find
+                //     peerConnectionInfo.current =
+                //       peerConnectionInfo.current.filter(
+                //         (usr) => usr.to !== newUser.to
+                //       );
+                //     // Clean up the disconnected peer's streams
+                //     setPeerStreamInfo((prevRecord) => {
+                //       const new_state = { ...prevRecord };
+                //       delete new_state[newUser.to];
+                //       return new_state;
+                //     });
                 //   }
                 // };
                 newPeerConnection.onnegotiationneeded = async () => {
@@ -665,6 +680,23 @@ export default function PodSpacePage() {
                   newPeerConnection.connectionState
                 );
               };
+              // newPeerConnection.oniceconnectionstatechange = function () {
+              //   if (newPeerConnection.iceConnectionState == "disconnected") {
+              //     console.log(
+              //       "Disconnected, checking if the wifi of the user went off"
+              //     );
+              //     peerConnectionInfo.current =
+              //       peerConnectionInfo.current.filter(
+              //         (usr) => usr.to !== newJoinee.to
+              //       );
+              //     // Clean up the disconnected peer's streams
+              //     setPeerStreamInfo((prevRecord) => {
+              //       const new_state = { ...prevRecord };
+              //       delete new_state[newJoinee.to];
+              //       return new_state;
+              //     });
+              //   }
+              // };
 
               newPeerConnection.onnegotiationneeded = async () => {
                 console.log("Negotiation needed for peer", fromId);
@@ -883,10 +915,17 @@ export default function PodSpacePage() {
       {/* Video Section */}
       <div
         className="w-full h-full grid gap-4 overflow-x-hidden"
-        style={{
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-        }}
+        style={
+          isSm
+            ? {
+                gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+              }
+            : {
+                gridTemplateColumns: `repeat(${rows}, minmax(0, 1fr))`,
+                gridTemplateRows: `repeat(${columns}, minmax(0, 1fr))`,
+              }
+        }
       >
         {/* Your video */}
         <div className="relative rounded-2xl overflow-hidden shadow-lg bg-black flex items-center justify-center">
