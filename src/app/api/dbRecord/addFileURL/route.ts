@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
       { status: 405 }
     );
   }
+
+  // type: "screen" | "video" | "audio";
   const body = await req.json();
   if (!body.meetingId || !body.userId || !body.fileType || !body.fileKey) {
     return NextResponse.json(
@@ -18,78 +20,65 @@ export async function POST(req: NextRequest) {
     );
   }
   const { meetingId, userId, fileType, fileKey } = body;
-  const params: {
-    meetingId: string;
-    userId: string;
-    audioFileKey?: string;
-    videoFileKey?: string;
-    thumbnailFileKey?: string;
-    screenShareFileKey?: string;
-  } = {
-    meetingId,
-    userId,
-  };
-
-  if (fileType === "AUDIO") {
-    params.audioFileKey = fileKey;
-  } else if (fileType === "VIDEO") {
-    params.videoFileKey = fileKey;
-  } else if (fileType === "THUMBNAIL") {
-    params.thumbnailFileKey = fileKey;
-  } else if (fileType === "SCREEN") {
-    params.screenShareFileKey = fileKey;
-  } else {
-    return NextResponse.json({ msg: "Invalid FileType" }, { status: 400 });
-  }
-
-  try {
-    const res = await prisma.recordings.upsert({
-      where: {
-        userId_meetingId: {
-          userId,
-          meetingId,
-        },
-      },
-      update: params,
-      create: params,
-    });
-
-    const updatedRecord = await prisma.recordings.findUnique({
-      where: {
-        userId_meetingId: {
-          userId,
-          meetingId,
-        },
-      },
-    });
-
-    // Mark as COMPLETED only if all four keys are present
-    if (
-      updatedRecord?.audioFileKey &&
-      updatedRecord?.videoFileKey &&
-      updatedRecord?.thumbnailFileKey &&
-      updatedRecord?.screenShareFileKey
-    ) {
-      await prisma.recordings.update({
-        where: {
-          userId_meetingId: {
-            userId,
-            meetingId,
-          },
-        },
+  if (fileType == "audio") {
+    try {
+      await prisma.audioChunksFilekeys.create({
         data: {
-          status: "COMPLETED",
+          userId: userId,
+          MeetingId: meetingId,
+          AudioChunkFileKey: fileKey,
         },
       });
+      return NextResponse.json(
+        { msg: "Successfully added fileKey to the DB." },
+        { status: 201 }
+      );
+    } catch (e) {
+      console.log(e);
+      return NextResponse.json(
+        { msg: "Error saving FileKey to database" },
+        { status: 500 }
+      );
     }
-
-    return NextResponse.json({ msg: res }, { status: 201 });
-  } catch (e) {
-    console.error("Error saving to database:", e);
-
-    return NextResponse.json(
-      { msg: "Error saving entry to database" },
-      { status: 500 }
-    );
+  } else if (fileType == "video") {
+    try {
+      await prisma.videoChunksFilekeys.create({
+        data: {
+          userId: userId,
+          MeetingId: meetingId,
+          VideoChunkFileKey: fileKey,
+        },
+      });
+      return NextResponse.json(
+        { msg: "Successfully added fileKey to the DB." },
+        { status: 201 }
+      );
+    } catch (e) {
+      console.log(e);
+      return NextResponse.json(
+        { msg: "Error saving FileKey to database" },
+        { status: 500 }
+      );
+    }
+  } else if (fileType == "screen") {
+    try {
+      await prisma.screenShareChunksFilekeys.create({
+        data: {
+          userId: userId,
+          MeetingId: meetingId,
+          ScreenShareChunkFileKey: fileKey,
+        },
+      });
+      return NextResponse.json(
+        { msg: "Successfully added fileKey to the DB." },
+        { status: 201 }
+      );
+    } catch (e) {
+      console.log(e);
+      return NextResponse.json(
+        { msg: "Error saving FileKey to database" },
+        { status: 500 }
+      );
+    }
   }
 }

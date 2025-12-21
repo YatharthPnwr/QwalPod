@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     //get the urls of the thumbnails
     return NextResponse.json({ userThumbnails: thumbnailURLs });
   } catch (e) {
+    console.log(e);
     return NextResponse.json({ err: "Error in getting the user thumbnail." });
   }
 }

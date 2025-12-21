@@ -15,8 +15,10 @@ export async function POST(req: NextRequest) {
     !body.fileName ||
     !body.uploadId ||
     !body.partNumbers ||
+    !body.meetingId ||
+    !body.userId ||
     !body.fileType ||
-    !body.meetingId
+    !body.segmentNumber
   ) {
     return NextResponse.json(
       {
@@ -25,7 +27,15 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { fileName, uploadId, partNumbers, meetingId } = body;
+  const {
+    fileName,
+    uploadId,
+    partNumbers,
+    meetingId,
+    userId,
+    fileType,
+    segmentNumber,
+  } = body;
 
   //converts the [undefined, undefined.. ] array into [1, 2, 3]
   const totalParts = Array.from({ length: partNumbers }, (_, i) => i + 1);
@@ -36,7 +46,7 @@ export async function POST(req: NextRequest) {
       totalParts.map(async (partNumber) => {
         const params = {
           Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: `${meetingId}/${fileName}`,
+          Key: `${meetingId}/${userId}/${fileType}/${segmentNumber}/${fileName}`,
           PartNumber: partNumber,
           UploadId: uploadId,
           Expires: 3600 * 3,

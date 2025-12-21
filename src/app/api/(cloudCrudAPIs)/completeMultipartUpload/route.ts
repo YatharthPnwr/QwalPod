@@ -11,7 +11,15 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = await req.json();
-  if (!body.fileName || !body.uploadId || !body.parts || !body.meetingId) {
+  if (
+    !body.fileName ||
+    !body.uploadId ||
+    !body.parts ||
+    !body.meetingId ||
+    !body.fileType ||
+    !body.userId ||
+    !body.segmentNumber
+  ) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -23,10 +31,13 @@ export async function POST(req: NextRequest) {
   const uploadId = body.uploadId;
   const parts = body.parts;
   const meetingId = body.meetingId;
+  const userId = body.userId;
+  const fileType = body.fileType;
+  const segmentNumber = body.segmentNumber;
 
   const params = {
     Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME as string,
-    Key: `${meetingId}/${fileName}`,
+    Key: `${meetingId}/${userId}/${fileType}/${segmentNumber}/${fileName}`,
     UploadId: uploadId,
 
     MultipartUpload: {

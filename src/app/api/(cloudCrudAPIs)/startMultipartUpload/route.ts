@@ -5,7 +5,14 @@ export async function POST(req: NextRequest) {
   // initialization
   const body = await req.json();
 
-  if (!body.fileName || !body.contentType || !body.meetingId) {
+  if (
+    !body.fileName ||
+    !body.contentType ||
+    !body.meetingId ||
+    !body.userId ||
+    !body.fileType ||
+    !body.segmentNumber
+  ) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -14,21 +21,25 @@ export async function POST(req: NextRequest) {
     );
   }
   const fileName = body.fileName;
+  const fileType = body.fileType;
   const contentType = body.contentType;
   const meetingId = body.meetingId;
+  const userId = body.userId;
+  const segmentNumber = body.segmentNumber;
+
   const params: CreateMultipartUploadRequest = {
     Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME as string,
-    Key: `${meetingId}/${fileName}`,
+    Key: `${meetingId}/${userId}/${fileType}/${segmentNumber}/${fileName}`,
   };
 
   // add extra params if content type is video
-  if (contentType == "VIDEO" || contentType == "SCREEN") {
+  if (contentType == "video/webm") {
     params.ContentDisposition = "inline";
     params.ContentType = "video/webm";
   }
 
   //or if the content type is audio
-  if (contentType == "AUDIO") {
+  if (contentType == "audio/webm") {
     params.ContentDisposition = "inline";
     params.ContentType = "audio/webm";
   }
