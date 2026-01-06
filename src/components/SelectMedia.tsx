@@ -96,13 +96,6 @@ export default function SelectMedia({
             },
           })
         );
-        //Close indexed db
-        if (webWorkerRef.current) {
-          webWorkerRef.current.postMessage({
-            event: "closeDB",
-          });
-          console.log("Sent the close db msg to the database");
-        }
       });
 
       const getUserDevicesandSetupHandler = async () => {

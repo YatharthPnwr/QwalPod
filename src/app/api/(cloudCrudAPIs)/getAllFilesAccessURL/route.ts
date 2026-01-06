@@ -1,77 +1,173 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
-import { clerkClient } from "@/lib/clerk/clerkClient";
-import { getGETPresignedURL } from "@/utils/functions/getGETPresignedURL";
 
-interface userKeyPath {
-  userId: string;
-  videoFileKey: string | null;
-  audioFileKey: string | null;
-  thumbnailFileKey: string | null;
+// interface userKeyPath {
+//   userId: string;
+//   videoFileKeys: string[] | null;
+//   audioChunkKeys: string[] | null;
+//   // thumbnailFileKey: string | null;
+// }
+interface finalAudioChunkKeys {
+  audioChunkKeys: {
+    [segmentNumber: number]: string[];
+  };
 }
 
-interface userMeetingUrls {
-  userId: string;
-  userName: string;
-  pic: string;
-  videoURL?: string;
-  audioURL?: string;
-  thumbnailURL?: string;
+interface finalVideoChunkKeys {
+  videoChunkKeys: {
+    [segmentNumber: number]: string[];
+  };
+}
+
+interface finalScreenAudioAndVideoChunkKeys {
+  screenChunkKeys: {
+    [segmentNumber: number]: string[];
+  };
+}
+interface getAllFileAccessURLResponse {
+  audioChunkSegments: finalAudioChunkKeys;
+  videoChunkSegments: finalVideoChunkKeys;
+  screenChunkSegments: finalScreenAudioAndVideoChunkKeys;
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  if (!body.meetingId) {
+  if (!body.meetingId || !body.userId) {
     return NextResponse.json(
       { msg: "Invalid body arguments" },
       { status: 400 }
     );
   }
   const meetingId = body.meetingId;
+  const userId = body.userId;
   try {
-    const usersAndFileKeys: userKeyPath[] = await prisma.recordings.findMany({
+    const audioChunkFileKeys = await prisma.audioChunksFilekeys.findMany({
       select: {
-        userId: true,
-        audioFileKey: true,
-        videoFileKey: true,
-        thumbnailFileKey: true,
+        AudioChunkFileKey: true,
+        segmentNum: true,
       },
       where: {
-        meetingId: meetingId,
+        MeetingId: meetingId,
+        userId: userId,
       },
+      orderBy: [
+        {
+          AudioChunkFileKey: "asc",
+        },
+      ],
     });
-    const meetingGetUrls: userMeetingUrls[] = await Promise.all(
-      usersAndFileKeys.map(async (usr) => {
-        let videoURL = "";
-        let audioURL = "";
-        let thumbnailURL = "";
-        const user = await clerkClient.users.getUser(usr.userId);
-        const userName = user.firstName;
-        if (usr.videoFileKey && usr.videoFileKey.length > 0) {
-          videoURL = getGETPresignedURL(usr.videoFileKey, userName as string);
-        }
-        if (usr.audioFileKey && usr.audioFileKey.length > 0) {
-          audioURL = getGETPresignedURL(usr.audioFileKey, userName as string);
-        }
-        if (usr.thumbnailFileKey && usr.thumbnailFileKey.length > 0) {
-          thumbnailURL = getGETPresignedURL(
-            usr.thumbnailFileKey,
-            userName as string
-          );
-        }
 
-        const userProfilePic = user.imageUrl;
-        return {
-          userId: usr.userId as string,
-          userName: userName as string,
-          pic: userProfilePic as string,
-          audioURL: audioURL,
-          videoURL: videoURL,
-          thumbnailURL: thumbnailURL,
-        };
-      })
+    const videoChunksFilekeys = await prisma.videoChunksFilekeys.findMany({
+      select: {
+        VideoChunkFileKey: true,
+        segmentNum: true,
+      },
+      where: {
+        userId: userId,
+        MeetingId: meetingId,
+      },
+      orderBy: [
+        {
+          VideoChunkFileKey: "asc",
+        },
+      ],
+    });
+    const screenChunkFilekeys = await prisma.screenShareChunksFilekeys.findMany(
+      {
+        select: {
+          ScreenShareChunkFileKey: true,
+          segmentNum: true,
+        },
+        where: {
+          userId: userId,
+          MeetingId: meetingId,
+        },
+        orderBy: [
+          {
+            ScreenShareChunkFileKey: "asc",
+          },
+        ],
+      }
     );
-    return NextResponse.json({ urls: meetingGetUrls }, { status: 200 });
+
+    //Organise all the chunks according to the segment numbers
+    const finalAudioChunksKeys: finalAudioChunkKeys = {
+      audioChunkKeys: {},
+    };
+    if (audioChunkFileKeys.length > 0) {
+      audioChunkFileKeys.map((chunk) => {
+        const segmentNum = chunk.segmentNum;
+        if (
+          Object.keys(finalAudioChunksKeys.audioChunkKeys).includes(
+            segmentNum.toString()
+          )
+        ) {
+          //The segment is already created
+          finalAudioChunksKeys.audioChunkKeys[segmentNum].push(
+            chunk.AudioChunkFileKey
+          );
+        } else {
+          //create a new segment and then push
+          finalAudioChunksKeys.audioChunkKeys[segmentNum] = [
+            chunk.AudioChunkFileKey,
+          ];
+        }
+      });
+    }
+
+    const finalVideoChunkKeys: finalVideoChunkKeys = {
+      videoChunkKeys: {},
+    };
+    if (videoChunksFilekeys.length > 0) {
+      videoChunksFilekeys.map((chunk) => {
+        const segmentNum = chunk.segmentNum;
+        if (
+          Object.keys(finalVideoChunkKeys.videoChunkKeys).includes(
+            chunk.segmentNum.toString()
+          )
+        ) {
+          //The segment is already present
+          finalVideoChunkKeys.videoChunkKeys[segmentNum].push(
+            chunk.VideoChunkFileKey
+          );
+        } else {
+          finalVideoChunkKeys.videoChunkKeys[segmentNum] = [
+            chunk.VideoChunkFileKey,
+          ];
+        }
+      });
+    }
+
+    const finalScreenAudioAndVideoChunkKeys: finalScreenAudioAndVideoChunkKeys =
+      {
+        screenChunkKeys: {},
+      };
+    if (screenChunkFilekeys.length > 0) {
+      screenChunkFilekeys.map((chunk) => {
+        const segmentNum = chunk.segmentNum;
+        if (
+          Object.keys(
+            finalScreenAudioAndVideoChunkKeys.screenChunkKeys
+          ).includes(chunk.segmentNum.toString())
+        ) {
+          //the object for that segment number already exists
+          finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum].push(
+            chunk.ScreenShareChunkFileKey
+          );
+        } else {
+          finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum] = [
+            chunk.ScreenShareChunkFileKey,
+          ];
+        }
+      });
+    }
+
+    const resObj: getAllFileAccessURLResponse = {
+      audioChunkSegments: finalAudioChunksKeys,
+      videoChunkSegments: finalVideoChunkKeys,
+      screenChunkSegments: finalScreenAudioAndVideoChunkKeys,
+    };
+    return NextResponse.json({ urls: resObj }, { status: 200 });
   } catch (e) {
     return NextResponse.json(
       { msg: "Internal Server error", error: e },

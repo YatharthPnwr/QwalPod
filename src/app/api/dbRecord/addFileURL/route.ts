@@ -11,7 +11,13 @@ export async function POST(req: NextRequest) {
 
   // type: "screen" | "video" | "audio";
   const body = await req.json();
-  if (!body.meetingId || !body.userId || !body.fileType || !body.fileKey) {
+  if (
+    !body.meetingId ||
+    !body.userId ||
+    !body.fileType ||
+    !body.fileKey ||
+    !body.segmentNum
+  ) {
     return NextResponse.json(
       {
         msg: "Missing body arguments",
@@ -19,7 +25,7 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { meetingId, userId, fileType, fileKey } = body;
+  const { meetingId, userId, fileType, fileKey, segmentNum } = body;
   if (fileType == "audio") {
     try {
       await prisma.audioChunksFilekeys.create({
@@ -27,6 +33,7 @@ export async function POST(req: NextRequest) {
           userId: userId,
           MeetingId: meetingId,
           AudioChunkFileKey: fileKey,
+          segmentNum: segmentNum,
         },
       });
       return NextResponse.json(
@@ -47,6 +54,7 @@ export async function POST(req: NextRequest) {
           userId: userId,
           MeetingId: meetingId,
           VideoChunkFileKey: fileKey,
+          segmentNum: segmentNum,
         },
       });
       return NextResponse.json(
@@ -67,6 +75,7 @@ export async function POST(req: NextRequest) {
           userId: userId,
           MeetingId: meetingId,
           ScreenShareChunkFileKey: fileKey,
+          segmentNum: segmentNum,
         },
       });
       return NextResponse.json(

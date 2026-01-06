@@ -256,8 +256,8 @@ export async function handleRecording(
   audioRecorderRef.current.onstop = () => {
     console.log("Audio recording stopped");
   };
-  audioRecorderRef.current.start(20000);
-  videoRecorderRef.current.start(20000);
+  audioRecorderRef.current.start(5000);
+  videoRecorderRef.current.start(5000);
 }
 
 function handleScreenShareRecording(
@@ -303,7 +303,7 @@ function handleScreenShareRecording(
       screenShareSegmentNumber: segmentNumber,
     });
   };
-  screenShareRef.current.start(20000);
+  screenShareRef.current.start(5000);
   screenShareRef.current.onstop = () => {
     console.log("screen sharing stopped stopped");
   };

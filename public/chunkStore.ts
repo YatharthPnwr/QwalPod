@@ -97,7 +97,7 @@ async function saveToS3(
   userId: string,
   segmentNumber: number
 ) {
-  console.log("The file being uploaded is", chunkMetaData.chunk);
+  console.log("The chunk being uploaded is", chunkMetaData);
   if (chunkMetaData.chunk.size < 10000000) {
     // check finalFile size if it is less than 10MB
     // Call your API to get the presigned URL
@@ -133,6 +133,18 @@ async function saveToS3(
         console.log(`${chunkMetaData} chunk uploaded successfully.`);
 
         //Add the fileKey of the audio file and the video file to the database table Recording.
+        try {
+          const updatedObjectKey = await updateChunkStatus(
+            chunkMetaData,
+            "uploaded"
+          );
+          const uploadingChunkMetaData = await getChunkMetaData(
+            updatedObjectKey
+          );
+          console.log("The uploaded chunk is", uploadingChunkMetaData);
+        } catch (e) {
+          throw new Error("Failed updating the chunk Status");
+        }
 
         try {
           const addFileKeyToDbRes = await axios.post(
@@ -141,6 +153,7 @@ async function saveToS3(
               meetingId: chunkMetaData.meetingId,
               userId: userId,
               fileType: chunkMetaData.type,
+              segmentNum: segmentNumber,
               fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
             }
           );
@@ -150,11 +163,6 @@ async function saveToS3(
           );
         } catch (e) {
           console.error("Error uploading file data to db", e);
-        }
-        try {
-          await updateChunkStatus(chunkMetaData, "uploaded");
-        } catch (e) {
-          throw new Error("Failed updating the chunk Status");
         }
       } else {
         throw new Error("Upload failed. the reason is", uploadResponse.data);
@@ -289,6 +297,7 @@ async function saveToS3(
             meetingId: chunkMetaData.meetingId,
             userId: userId,
             fileType: chunkMetaData.type,
+            segmentNum: chunkMetaData.segmentNumber,
             fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
           }
         );
@@ -305,6 +314,7 @@ async function saveToS3(
 }
 
 let uploadingChunk: boolean = false;
+let MeetingRecordingStopped: boolean = false;
 //start upload chunks of current meeting
 async function startUploadingMeetingChunks(meetingId: string, userId: string) {
   while (true) {
@@ -327,11 +337,16 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
       }
       //get 1 unuploaded chunk in the meeting.
       const unuploadedChunk = await getUnuploadedChunk(meetingId, userId);
+      if (!unuploadedChunk && MeetingRecordingStopped) {
+        console.log("All chunks have been uploaded succcessfully!");
+        postMessage({
+          event: "AllChunksUploaded",
+        });
+        return;
+      }
       if (!unuploadedChunk) {
         //if there are none, then the full meeting has been uploaded yayyy!
-        console.log(
-          "All chunks have been successfully uploaded to the s3 bucket"
-        );
+        console.log("No new Chunk to upload");
         const wait3Sec = () => {
           return new Promise((resolve) => {
             setTimeout(() => {
@@ -350,34 +365,44 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
 
       // Set upload flag and update status
       uploadingChunk = true;
-      await updateChunkStatus(unuploadedChunk, "uploading");
+      const updatedObjectKey = await updateChunkStatus(
+        unuploadedChunk,
+        "uploading"
+      );
+      const uploadingChunkMetaData = await getChunkMetaData(updatedObjectKey);
+      console.log("The chunk being uploaded is", uploadingChunkMetaData);
 
       try {
         // Upload the chunk
-        if (unuploadedChunk.screenShareSegmentNumber) {
+        if (uploadingChunkMetaData.screenShareSegmentNumber) {
           await saveToS3(
-            unuploadedChunk,
+            uploadingChunkMetaData,
             userId,
-            unuploadedChunk.screenShareSegmentNumber
+            uploadingChunkMetaData.screenShareSegmentNumber
           );
         } else {
           await saveToS3(
-            unuploadedChunk,
+            uploadingChunkMetaData,
             userId,
-            unuploadedChunk.segmentNumber
+            uploadingChunkMetaData.segmentNumber
           );
         }
         console.log(
-          `[Worker] Successfully uploaded: ${unuploadedChunk.chunkName}`
+          `[Worker] Successfully uploaded: ${uploadingChunkMetaData.chunkName}`
         );
       } catch (uploadError) {
         console.error(
-          `[Worker] Upload failed for ${unuploadedChunk.chunkName}:`,
+          `[Worker] Upload failed for ${uploadingChunkMetaData.chunkName}:`,
           uploadError,
           "changing the status back to left"
         );
 
-        await updateChunkStatus(unuploadedChunk, "left");
+        const updatedObjectKey = await updateChunkStatus(
+          uploadingChunkMetaData,
+          "left"
+        );
+        const failedChunkMetaData = await getChunkMetaData(updatedObjectKey);
+        console.log("The failedChunk is", failedChunkMetaData);
       }
     } catch (error) {
       console.error("[Worker] Error in upload loop:", error);
@@ -385,6 +410,27 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
       uploadingChunk = false;
     }
   }
+}
+
+async function getChunkMetaData(key: string): Promise<ChunkMetaData> {
+  return new Promise((resolve, reject) => {
+    if (!dbInstance) {
+      reject("No DB instance found returning");
+      return;
+    }
+    const tx = dbInstance.transaction("Recordings", "readonly");
+    const os = tx.objectStore("Recordings");
+    const objectMetaDataReq = os.get(key);
+
+    objectMetaDataReq.onsuccess = () => {
+      const objectMetaData = objectMetaDataReq.result;
+      resolve(objectMetaData);
+    };
+    objectMetaDataReq.onerror = () => {
+      reject("Failed fetching the updated object");
+      return;
+    };
+  });
 }
 
 // Save incoming audio/video chunk
@@ -396,34 +442,54 @@ async function saveChunk(
   type: "audio" | "video" | "screen",
   chunk: Blob,
   screenShareSegmentNumber?: number
-) {
-  if (!dbInstance) {
-    console.error("DB not ready yet!");
-    return;
-  }
-  console.log("Trying to save the chunk type, ", type);
-  const chunkNumber = await getLatestChunkNumberForaType(type, meetingId);
-  const name = getChunkName(type, chunkNumber);
-  //Create the chunk metadata and store the record in the DB
-  const chunkMetaData: ChunkMetaData = {
-    id: id,
-    userId: userId,
-    segmentNumber: segmentNumber,
-    chunk: chunk,
-    type: type,
-    screenShareSegmentNumber: screenShareSegmentNumber,
-    meetingId: meetingId,
-    uploadStatus: "left",
-    chunkName: name,
-    chunkNumber: chunkNumber,
-  };
-  //Save the chunk to indexed DB
-  const tx = dbInstance.transaction("Recordings", "readwrite");
-  const store = tx.objectStore("Recordings");
-  const addReq = store.add(chunkMetaData);
-  addReq.onsuccess = async () => {
-    // console.log("[Worker] The ", type, "chunk was stored in the db");
-  };
+): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    if (!dbInstance) {
+      reject("DB not ready yet!");
+      return;
+    }
+    console.log("Trying to save the chunk type, ", type);
+    const chunkNumber = await getLatestChunkNumberForaType(type, meetingId);
+    const name = getChunkName(type, chunkNumber);
+    //Create the chunk metadata and store the record in the DB
+    const chunkMetaData: ChunkMetaData = {
+      id: id,
+      userId: userId,
+      segmentNumber: segmentNumber,
+      chunk: chunk,
+      type: type,
+      screenShareSegmentNumber: screenShareSegmentNumber,
+      meetingId: meetingId,
+      uploadStatus: "left",
+      chunkName: name,
+      chunkNumber: chunkNumber,
+    };
+    //Save the chunk to indexed DB
+    const tx = dbInstance.transaction("Recordings", "readwrite");
+    const store = tx.objectStore("Recordings");
+    const addReq = store.add(chunkMetaData);
+
+    addReq.onsuccess = async () => {
+      // console.log("[Worker] The ", type, "chunk was stored in the db");
+      //Upload the chunk to s3
+      // const updatedObjectKey = await updateChunkStatus(
+      //   chunkMetaData,
+      //   "uploading"
+      // );
+      // const uploadingChunkMetaData = await getChunkMetaData(updatedObjectKey);
+      // console.log("The chunk being uploaded is", uploadingChunkMetaData);
+      // await saveToS3(
+      //   uploadingChunkMetaData,
+      //   userId,
+      //   uploadingChunkMetaData.segmentNumber
+      // );
+      resolve();
+      return;
+    };
+    addReq.onerror = () => {
+      reject();
+    };
+  });
 }
 
 //Get an unuploaded chunk
@@ -508,7 +574,10 @@ async function updateChunkStatus(
       const putRequest = store.put(existingData);
       putRequest.onsuccess = () => {
         console.log("status set to", updatedStatus, "for chunk", chunkMetaData);
-        resolve("updated chunk status successfully");
+        const keyObj = putRequest.result;
+        console.log("THe key of the upadted object is", keyObj.toString);
+        resolve(keyObj as string);
+        return;
       };
 
       putRequest.onerror = (e) => {
@@ -592,6 +661,71 @@ async function getScreenShareSegmentNumber(roomId: string, userId: string) {
   });
 }
 
+async function getAllRemainingChunksOfaUserMeeting(
+  meetingId: string,
+  userId: string
+): Promise<ChunkMetaData[]> {
+  return new Promise((resolve, reject) => {
+    //get all the chunks of a meeting id.
+    if (!dbInstance) {
+      console.log("DB not ready yet!");
+      reject;
+      return;
+    }
+    console.log("THE MEETING ID IS", meetingId, "THE USERID IS", userId);
+    const tx = dbInstance.transaction("Recordings", "readonly");
+    const objectStore = tx.objectStore("Recordings");
+    const index = objectStore.index("userIdMeetingChunkStatus");
+    const allChunksReq = index.getAll([userId, meetingId, "left"]);
+    allChunksReq.onsuccess = () => {
+      const allChunks = allChunksReq.result;
+      resolve(allChunks);
+      return;
+    };
+    allChunksReq.onerror = () => {
+      console.log("Error in finding all the unuploaded chunks");
+      reject;
+      return;
+    };
+  });
+}
+
+// async function saveAllTheRemainingChunksToS3(
+//   meetingId: string,
+//   userId: string
+// ) {
+//   const allLeftChunks = await getAllRemainingChunksOfaUserMeeting(
+//     meetingId,
+//     userId
+//   );
+
+//   console.log("All left chunks are ", allLeftChunks);
+//   if (allLeftChunks.length == 0) {
+//     console.log("All chunks have been successfully uploaded or are uploading");
+//     postMessage({ event: "allChunksUploadedAlready" });
+//     return;
+//   }
+
+//   //Upload them to s3
+//   try {
+//     await Promise.all(
+//       allLeftChunks.map(async (chunk: ChunkMetaData) => {
+//         await saveToS3(chunk, userId, chunk.segmentNumber);
+//       })
+//     );
+//     //After all the chunks have been saved to the s3,
+//     postMessage({
+//       event: "allLeftChunksUploaded",
+//     });
+//     //Send the consolidate files msg to the backend process.
+//     //There it will check if the consolidation process is under process, has already been done, or is in the queue.
+//   } catch (e) {
+//     console.log("Could not upload the chunks to s3.", e);
+//   }
+// }
+
+//A function to send the backend process a request to start the consolidation of all the files.
+
 // Handle messages from main thread
 self.onmessage = async (msg) => {
   const event = msg.data.event;
@@ -640,6 +774,16 @@ self.onmessage = async (msg) => {
       screenShareSegmentNumber: segmentNumber,
       event: "screenSegmentNumber",
     });
+  }
+  // if (event == "saveAllTheRemainingChunksToS3") {
+  //   const { roomId, userId } = msg.data;
+  //   console.log("receieved ", roomId, "userId is", userId);
+
+  //   await saveAllTheRemainingChunksToS3(roomId, userId);
+  // }
+  if (event == "MeetingRecordingStopped") {
+    console.log("The meeting recording has been stoppeeeeeeeeedddddddddd");
+    MeetingRecordingStopped = true;
   }
   if (event == "closeDB") {
     console.log("Closing the db");

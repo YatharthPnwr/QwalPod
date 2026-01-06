@@ -800,7 +800,7 @@ export default function PodSpacePage({
             screenShareStatus={screenShareStatus}
             setScreenShareStatus={setScreenShareStatus}
             userId={user.id}
-            roomId={params.roomId as string}
+            roomId={roomId as string}
             setSrcScreenShareStream={setSrcScreenShareStream}
             srcScreenShareStream={srcScreenShareStream}
             screenShareRecorderRef={screenShareRecorderRef}

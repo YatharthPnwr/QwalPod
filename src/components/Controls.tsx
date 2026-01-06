@@ -15,6 +15,7 @@ import { startScreenShare } from "@/utils/functions/getDevicesAndMedia";
 import { useMediaPredicate } from "react-media-hook";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import { ScreenShareStatus } from "@/utils/exports";
+import { useRouter } from "next/navigation";
 interface peerConnectionInfo {
   to: string;
   peerConnection: RTCPeerConnection;
@@ -51,6 +52,7 @@ export default function Controls(props: ControlsInput) {
   const { webWorkerRef } = useApplicationContext();
   //Currently selected audio, video options.
   const { ws } = useApplicationContext();
+  const router = useRouter();
 
   return (
     <>
@@ -278,9 +280,15 @@ export default function Controls(props: ControlsInput) {
                   peer.peerConnection.close();
                 });
                 //Send the msg to store the file in the cloud
-                // router.push(
-                //   `/podcast/uploading/${localStorage.getItem("roomId")}`
-                // );
+
+                //Send the upload remaining chunks msg to the worker
+                webWorkerRef.current?.postMessage({
+                  event: "MeetingRecordingStopped",
+                });
+                router.push(
+                  `/podcast/uploading/${localStorage.getItem("roomId")}`
+                );
+                return;
                 //Leave the room
               }}
             >

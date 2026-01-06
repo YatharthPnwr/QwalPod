@@ -1,87 +1,56 @@
 "use client";
 import { useApplicationContext } from "@/lib/context/ApplicationContext";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
 
-export default function Upload() {
+export default function Uploading() {
   const { webWorkerRef } = useApplicationContext();
+  const { isLoaded, user } = useUser();
   const router = useRouter();
-  const params = useParams();
 
-  const [fileTypeToUpload, setFileTypesToUpload] = useState<Record<
-    string,
-    boolean
-  > | null>(null);
-  // const allCompleted = Object.values(fileTypeToUpload).every(Boolean);
-  const meetingId = params.roomId;
   useEffect(() => {
-    console.log("updated state of file type upload", fileTypeToUpload);
-
-    // Object.keys(fileTypeToUpload).forEach
-    if (fileTypeToUpload) {
-      for (const key in fileTypeToUpload) {
-        if (fileTypeToUpload[key] == false) {
-          return;
-        }
+    if (isLoaded && user) {
+      if (!webWorkerRef.current) {
+        console.log("No web worker found!");
+        return;
       }
+      const roomId = localStorage.getItem("roomId");
+      console.log("roomId is", roomId);
 
-      router.push(`/dashboard/recordings/${meetingId}`);
-    }
-  }, [fileTypeToUpload]);
+      webWorkerRef.current.onmessage = (e) => {
+        const event = e.data.event;
 
-  useEffect(() => {
-    if (!webWorkerRef.current) {
-      console.log("No webworker found ");
-      return;
-    } else {
-      // assign the message handler instead of invoking it
-      webWorkerRef.current.onmessage = (event: MessageEvent) => {
-        console.log("The message received is,", event.data);
-        // setUploadStatus(true);
-        if (event.data.event == "fileTypesToUpload") {
-          console.log("File types to upload are", event.data.event);
-          const initialStatus = Object.fromEntries(
-            event.data.data.map((e: string) => [e, false])
+        if (event == "AllChunksUploaded") {
+          router.push(
+            `/dashboard/recordings/${localStorage.getItem("roomId")}`
           );
-          initialStatus["thumbnail"] = false;
-          console.log("The initial file status is", initialStatus);
-          // setFileTypesToUpload(initialStatus);
-          setFileTypesToUpload(initialStatus);
-          // fileTypeToUpload.current = initialStatus;
-        }
-        if (event.data.event == "FileUploadSuccessful") {
-          const type = event.data.fileType;
-          // fileTypeToUpload.current[type] = true;
-          setFileTypesToUpload((pre) => ({ ...pre, [type]: true }));
         }
       };
-
-      webWorkerRef.current.postMessage({
-        event: "getUploadFileTypes",
-        roomId: localStorage.getItem("roomId"),
-      });
     }
-
-    // cleanup handler on unmount
-    return () => {
-      if (webWorkerRef.current) {
-        webWorkerRef.current.onmessage = null;
-      }
-    };
-  }, [webWorkerRef]);
-
+  }, [isLoaded, user]);
   return (
     <>
-      {fileTypeToUpload && (
-        <>
-          <div>UPLOADING FILES </div>
-          {fileTypeToUpload["audio"] && <div>Audio Done</div>}
-          {fileTypeToUpload["video"] && <div>Video Done</div>}
-          {fileTypeToUpload["thumbnail"] && <div>Thumbnail Done</div>}
-          {fileTypeToUpload["screen"] && <div>Screen Done</div>}
-          {/* {allCompleted && <div>All complete</div>} */}
-        </>
-      )}
+      <div className="w-full h-screen flex items-center justify-center">
+        <Empty className="w-full">
+          <EmptyHeader>
+            <Spinner className="size-15" />
+            <EmptyTitle>Uploading remaining parts of the podcast</EmptyTitle>
+            <EmptyDescription>
+              Please wait while we upload the remaining chunks. You will
+              automatically be redirected once this is completed.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      </div>
     </>
   );
 }
