@@ -342,6 +342,12 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
         postMessage({
           event: "AllChunksUploaded",
         });
+        //ADD the job to bullMQ.
+        //WILL HAVE TO  BE AN API THAT THE USER WILL HIT TO ADD A Job
+        axios.post("/api/addJob", {
+          meetingId: meetingId,
+          userId: userId,
+        });
         return;
       }
       if (!unuploadedChunk) {

@@ -44,6 +44,16 @@ export async function POST(req: NextRequest) {
     params.ContentType = "audio/webm";
   }
 
+  if (contentType == "video/mp4") {
+    params.ContentDisposition = "inline";
+    params.ContentType = "video/mp4";
+  }
+
+  if (contentType == "audio/mp3") {
+    params.ContentDisposition = "inline";
+    params.ContentType = "audio/mp3";
+  }
+
   try {
     const multipart = await s3.createMultipartUpload(params).promise();
     return NextResponse.json({ uploadId: multipart.UploadId });

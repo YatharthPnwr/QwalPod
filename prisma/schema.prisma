@@ -61,4 +61,36 @@ model ScreenShareChunksFilekeys {
 }
 
 //New table to store the final Genearted videos, audios and the thumbnails of the meeting
+model FinalAudioKey {
+  fileNum      Int    @id @default(autoincrement())
+  segmentNum   Int
+  userId       String
+  MeetingId    String
+  AudioFileKey String
+}
+
+model FinalVideoKey {
+  fileNum      Int    @id @default(autoincrement())
+  segmentNum   Int
+  userId       String
+  MeetingId    String
+  VideoFileKey String
+}
+
+model FinalScreenFileKey {
+  fileNum       Int    @id @default(autoincrement())
+  segmentNum    Int
+  userId        String
+  MeetingId     String
+  ScreenFileKey String
+}
+
+model FinalThumbnailKey {
+  fileNum          Int    @id @default(autoincrement())
+  segmentNum       Int
+  userId           String
+  MeetingId        String
+  ThumbnailFileKey String
+}
+
 //New table to store if all chunks of a meeting have been uploaded.

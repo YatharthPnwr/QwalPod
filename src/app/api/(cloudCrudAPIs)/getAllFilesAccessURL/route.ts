@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
+import { getGETPresignedURL } from "@/utils/functions/getGETPresignedURL";
 
 // interface userKeyPath {
 //   userId: string;
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
       select: {
         AudioChunkFileKey: true,
         segmentNum: true,
+        chunkNum: true,
       },
       where: {
         MeetingId: meetingId,
@@ -61,6 +63,7 @@ export async function POST(req: NextRequest) {
       select: {
         VideoChunkFileKey: true,
         segmentNum: true,
+        chunkNum: true,
       },
       where: {
         userId: userId,
@@ -77,6 +80,7 @@ export async function POST(req: NextRequest) {
         select: {
           ScreenShareChunkFileKey: true,
           segmentNum: true,
+          chunkNum: true,
         },
         where: {
           userId: userId,
@@ -97,20 +101,20 @@ export async function POST(req: NextRequest) {
     if (audioChunkFileKeys.length > 0) {
       audioChunkFileKeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
+        const fileURL = getGETPresignedURL(
+          chunk.AudioChunkFileKey,
+          `audio_chunk_${userId}`
+        );
         if (
           Object.keys(finalAudioChunksKeys.audioChunkKeys).includes(
             segmentNum.toString()
           )
         ) {
           //The segment is already created
-          finalAudioChunksKeys.audioChunkKeys[segmentNum].push(
-            chunk.AudioChunkFileKey
-          );
+          finalAudioChunksKeys.audioChunkKeys[segmentNum].push(fileURL);
         } else {
           //create a new segment and then push
-          finalAudioChunksKeys.audioChunkKeys[segmentNum] = [
-            chunk.AudioChunkFileKey,
-          ];
+          finalAudioChunksKeys.audioChunkKeys[segmentNum] = [fileURL];
         }
       });
     }
@@ -121,19 +125,19 @@ export async function POST(req: NextRequest) {
     if (videoChunksFilekeys.length > 0) {
       videoChunksFilekeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
+        const fileURL = getGETPresignedURL(
+          chunk.VideoChunkFileKey,
+          `video_chunk_${userId}`
+        );
         if (
           Object.keys(finalVideoChunkKeys.videoChunkKeys).includes(
             chunk.segmentNum.toString()
           )
         ) {
           //The segment is already present
-          finalVideoChunkKeys.videoChunkKeys[segmentNum].push(
-            chunk.VideoChunkFileKey
-          );
+          finalVideoChunkKeys.videoChunkKeys[segmentNum].push(fileURL);
         } else {
-          finalVideoChunkKeys.videoChunkKeys[segmentNum] = [
-            chunk.VideoChunkFileKey,
-          ];
+          finalVideoChunkKeys.videoChunkKeys[segmentNum] = [fileURL];
         }
       });
     }
@@ -145,6 +149,10 @@ export async function POST(req: NextRequest) {
     if (screenChunkFilekeys.length > 0) {
       screenChunkFilekeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
+        const fileURL = getGETPresignedURL(
+          chunk.ScreenShareChunkFileKey,
+          `screen_chunk_${userId}`
+        );
         if (
           Object.keys(
             finalScreenAudioAndVideoChunkKeys.screenChunkKeys
@@ -152,22 +160,23 @@ export async function POST(req: NextRequest) {
         ) {
           //the object for that segment number already exists
           finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum].push(
-            chunk.ScreenShareChunkFileKey
+            fileURL
           );
         } else {
           finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum] = [
-            chunk.ScreenShareChunkFileKey,
+            fileURL,
           ];
         }
       });
     }
-
-    const resObj: getAllFileAccessURLResponse = {
-      audioChunkSegments: finalAudioChunksKeys,
-      videoChunkSegments: finalVideoChunkKeys,
-      screenChunkSegments: finalScreenAudioAndVideoChunkKeys,
-    };
-    return NextResponse.json({ urls: resObj }, { status: 200 });
+    return NextResponse.json(
+      {
+        audioChunkSegments: finalAudioChunksKeys,
+        videoChunkSegments: finalVideoChunkKeys,
+        screenChunkSegments: finalScreenAudioAndVideoChunkKeys,
+      },
+      { status: 200 }
+    );
   } catch (e) {
     return NextResponse.json(
       { msg: "Internal Server error", error: e },
