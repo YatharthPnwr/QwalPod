@@ -29,7 +29,6 @@ model Recordings {
   thumbnailFileKey    String?
 }
 
-//New table to sthttps://stackoverflow.com/questions/72583324/how-to-make-id-autoincrement-in-schema-prismaore the filekeys of chunks of audio, video and screenshare
 model AudioChunksFilekeys {
   chunkNum          Int    @id @default(autoincrement())
   segmentNum        Int
@@ -70,26 +69,20 @@ model FinalAudioKey {
 }
 
 model FinalVideoKey {
-  fileNum      Int    @id @default(autoincrement())
-  segmentNum   Int
-  userId       String
-  MeetingId    String
-  VideoFileKey String
-}
-
-model FinalScreenFileKey {
-  fileNum       Int    @id @default(autoincrement())
-  segmentNum    Int
-  userId        String
-  MeetingId     String
-  ScreenFileKey String
-}
-
-model FinalThumbnailKey {
   fileNum          Int    @id @default(autoincrement())
   segmentNum       Int
   userId           String
   MeetingId        String
+  VideoFileKey     String
+  ThumbnailFileKey String
+}
+
+model FinalScreenFileKey {
+  fileNum          Int    @id @default(autoincrement())
+  segmentNum       Int
+  userId           String
+  MeetingId        String
+  ScreenFileKey    String
   ThumbnailFileKey String
 }
 

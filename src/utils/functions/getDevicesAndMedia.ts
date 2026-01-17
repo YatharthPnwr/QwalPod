@@ -23,7 +23,7 @@ export async function startScreenShare(
   setSrcScreenShareStream: Dispatch<SetStateAction<MediaStream | undefined>>,
   setScreenShareStatus: Dispatch<SetStateAction<ScreenShareStatus>>,
   ws: React.RefObject<WebSocket | null>,
-  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>
+  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>,
 ) {
   try {
     if (!userId) {
@@ -34,7 +34,7 @@ export async function startScreenShare(
       webWorkerRef,
       roomId,
       userId,
-      true
+      true,
     );
     const displayMedia = await navigator.mediaDevices.getDisplayMedia({
       audio: true,
@@ -56,7 +56,7 @@ export async function startScreenShare(
               userId: userId,
               roomId: roomId,
             },
-          })
+          }),
         );
       };
     });
@@ -69,7 +69,7 @@ export async function startScreenShare(
       screenShareRecorderRef,
       webWorkerRef,
       userId,
-      segmentNumber
+      segmentNumber,
     );
     deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
     console.log("THE UPDATED DEVICETYPETOID IS", deviceTypeToID.current);
@@ -87,7 +87,7 @@ export async function startScreenShare(
           userId: userId,
           roomId: roomId,
         },
-      })
+      }),
     );
     setScreenShareStatus(ScreenShareStatus.SHARING);
   } catch (e) {
@@ -99,14 +99,14 @@ const getSegmentNumber = async (
   webWorkerRef: React.RefObject<Worker | null>,
   roomId: string,
   userId: string,
-  screenSegment: boolean
+  screenSegment: boolean,
 ) => {
   return new Promise<number>((resolve, reject) => {
     if (!webWorkerRef.current) {
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore.ts", import.meta.url)
+        new URL("../../../public/chunkStore.ts", import.meta.url),
       );
       webWorkerRef.current = workerScript;
     }
@@ -164,7 +164,7 @@ export async function handleRecording(
   videoStream: MediaStream,
   roomId: string,
   webWorkerRef: React.RefObject<Worker | null>,
-  userId: string
+  userId: string,
 ) {
   //get the streamNumber first then start the recording.
   //With every saveChunk message send the streamNumber too.
@@ -176,11 +176,11 @@ export async function handleRecording(
     webWorkerRef,
     roomId as string,
     userId as string,
-    false
+    false,
   );
   console.log(
     "The audio And Video Segment Ids are",
-    audioAndVideoSegmentNumber
+    audioAndVideoSegmentNumber,
   );
   console.log("Starting the local recording of media");
   const audioRecorder = new MediaRecorder(audioStream);
@@ -198,7 +198,7 @@ export async function handleRecording(
     console.log("NO web worker found, creating a new");
     //create a new worker
     const workerScript = new Worker(
-      new URL("../../../public/chunkStore", import.meta.url)
+      new URL("../../../public/chunkStore", import.meta.url),
     );
     webWorkerRef.current = workerScript;
   }
@@ -208,7 +208,7 @@ export async function handleRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
       // return;
@@ -232,7 +232,7 @@ export async function handleRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
       // return;
@@ -264,18 +264,18 @@ function handleScreenShareRecording(
   screenShareRef: React.RefObject<MediaRecorder | null>,
   webWorkerRef: React.RefObject<Worker | null>,
   userId: string,
-  segmentNumber: number
+  segmentNumber: number,
 ) {
+  console.log("The screen segmentNumber is ", segmentNumber);
   //Get ScreenShareSegmentNumber first store it in a variable,
   //Then with each saveChunk msg, send that number to the worker script.
   if (!webWorkerRef.current) {
     console.log("NO web worker found, creating a new");
     //create a new worker
     const workerScript = new Worker(
-      new URL("../../../public/chunkStore", import.meta.url)
+      new URL("../../../public/chunkStore", import.meta.url),
     );
     webWorkerRef.current = workerScript;
-    // return;
   }
   if (!screenShareRef.current) {
     console.log("no screen share recorder found returning");
@@ -288,7 +288,7 @@ function handleScreenShareRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
     }
@@ -316,10 +316,10 @@ interface updateMediaInputs {
 export async function updateMediaStream(props: updateMediaInputs) {
   const updatedMediaStream = await navigator.mediaDevices.enumerateDevices();
   const audioOptions = updatedMediaStream.filter(
-    (device) => device.kind === "audioinput"
+    (device) => device.kind === "audioinput",
   );
   const videoOptions = updatedMediaStream.filter(
-    (device) => device.kind === "videoinput"
+    (device) => device.kind === "videoinput",
   );
   props.setAudioInputOptions(audioOptions);
   props.setVideoOptions(videoOptions);
@@ -346,9 +346,8 @@ export async function switchMedia(props: switchMediaInputs) {
     };
 
     try {
-      const newAudioStream = await navigator.mediaDevices.getUserMedia(
-        newConstraints
-      );
+      const newAudioStream =
+        await navigator.mediaDevices.getUserMedia(newConstraints);
 
       props.setSrcAudioStream(newAudioStream);
       console.log("Latest src audio stream is set as", newAudioStream);
@@ -369,9 +368,8 @@ export async function switchMedia(props: switchMediaInputs) {
     };
 
     try {
-      const newVideoStream = await navigator.mediaDevices.getUserMedia(
-        newVideoConstraints
-      );
+      const newVideoStream =
+        await navigator.mediaDevices.getUserMedia(newVideoConstraints);
       props.setSrcVideoStream(newVideoStream);
       props.deviceTypeToID.current.forEach((value, key) => {
         if (value == "peerVideo") {

@@ -10,6 +10,7 @@ dbRequest.onupgradeneeded = (event) => {
   if (!db.objectStoreNames.contains("Recordings")) {
     objectStore = db.createObjectStore("Recordings", { keyPath: "id" });
     objectStore.createIndex("MeetingChunkType", ["meetingId", "type"]);
+    objectStore.createIndex("userIdChunkStatus", ["userId", "uploadStatus"]);
     objectStore.createIndex("userIdMeetingChunkStatus", [
       "userId",
       "meetingId",
@@ -51,7 +52,7 @@ interface ChunkMetaData {
 //Get chunk number for a type
 async function getLatestChunkNumberForaType(
   type: "screen" | "video" | "audio",
-  meetingId: string
+  meetingId: string,
 ): Promise<number> {
   return new Promise((resolve, reject) => {
     if (!dbInstance) {
@@ -95,7 +96,7 @@ function getChunkName(type: "screen" | "video" | "audio", chunkNumber: number) {
 async function saveToS3(
   chunkMetaData: ChunkMetaData,
   userId: string,
-  segmentNumber: number
+  segmentNumber: number,
 ) {
   console.log("The chunk being uploaded is", chunkMetaData);
   if (chunkMetaData.chunk.size < 10000000) {
@@ -113,7 +114,7 @@ async function saveToS3(
         meetingId: chunkMetaData.meetingId,
         userId: userId,
         segmentNumber: segmentNumber,
-      }
+      },
     );
     const { url } = response.data;
     console.log("The presigned url is", url);
@@ -136,31 +137,55 @@ async function saveToS3(
         try {
           const updatedObjectKey = await updateChunkStatus(
             chunkMetaData,
-            "uploaded"
+            "uploaded",
           );
-          const uploadingChunkMetaData = await getChunkMetaData(
-            updatedObjectKey
-          );
+          const uploadingChunkMetaData =
+            await getChunkMetaData(updatedObjectKey);
           console.log("The uploaded chunk is", uploadingChunkMetaData);
         } catch (e) {
           throw new Error("Failed updating the chunk Status");
         }
 
         try {
-          const addFileKeyToDbRes = await axios.post(
-            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
-            {
-              meetingId: chunkMetaData.meetingId,
-              userId: userId,
-              fileType: chunkMetaData.type,
-              segmentNum: segmentNumber,
-              fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
-            }
-          );
-          console.log(
-            "Chunk File Key added to database",
-            addFileKeyToDbRes.data
-          );
+          if (chunkMetaData.screenShareSegmentNumber) {
+            const addFileKeyToDbRes = await axios.post(
+              `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
+              {
+                meetingId: chunkMetaData.meetingId,
+                userId: userId,
+                fileType: chunkMetaData.type,
+                segmentNum: segmentNumber,
+                fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.screenShareSegmentNumber}/${chunkMetaData.chunkName}`,
+              },
+            );
+            console.log(
+              "Chunk File Key added to database",
+              addFileKeyToDbRes.data,
+            );
+          } else {
+            const addFileKeyToDbRes = await axios.post(
+              `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
+              {
+                meetingId: chunkMetaData.meetingId,
+                userId: userId,
+                fileType: chunkMetaData.type,
+                segmentNum: segmentNumber,
+                fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
+              },
+            );
+            console.log(
+              "Chunk File Key added to database",
+              addFileKeyToDbRes.data,
+            );
+          }
+          // try {
+          //   await deleteChunk(chunkMetaData);
+          // } catch (e) {
+          //   console.log(
+          //     "[WORKER] ERROR IN DELETING THE UPLOADDED CHUNK FROM INDEXED DB",
+          //     e
+          //   );
+          // }
         } catch (e) {
           console.error("Error uploading file data to db", e);
         }
@@ -188,7 +213,7 @@ async function saveToS3(
         meetingId: chunkMetaData.meetingId,
         userId: userId,
         segmentNumber: segmentNumber,
-      }
+      },
     );
 
     // get uploadId
@@ -217,7 +242,7 @@ async function saveToS3(
         userId: userId,
         fileType: chunkMetaData.type,
         segmentNumber: segmentNumber,
-      }
+      },
     );
 
     let presigned_urls = presignedUrls_response?.data?.presignedUrls;
@@ -241,7 +266,7 @@ async function saveToS3(
                   ? "video/webm"
                   : "audio/webm",
             },
-          })
+          }),
         );
       } catch (e) {
         console.log("Error occured while pushing", e);
@@ -275,7 +300,7 @@ async function saveToS3(
         userId: userId,
         fileType: chunkMetaData.type,
         segmentNumber: segmentNumber,
-      }
+      },
     );
 
     console.log("Complete upload- ", complete_upload.data);
@@ -284,24 +309,52 @@ async function saveToS3(
     if (complete_upload.status === 200) {
       //This will break
       console.log(
-        `sending messages of COMPLETION OF ${chunkMetaData.type} FILE UPLOADS`
+        `sending messages of COMPLETION OF ${chunkMetaData.type} FILE UPLOADS`,
       );
       postMessage({
         event: "FileUploadSuccessful",
         fileType: chunkMetaData.type.toLowerCase(),
       });
       try {
-        const addFileKeyToDbRes = await axios.post(
-          `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
-          {
-            meetingId: chunkMetaData.meetingId,
-            userId: userId,
-            fileType: chunkMetaData.type,
-            segmentNum: chunkMetaData.segmentNumber,
-            fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
-          }
-        );
-        console.log("Chunk File Key added to database", addFileKeyToDbRes.data);
+        if (chunkMetaData.screenShareSegmentNumber) {
+          const addFileKeyToDbRes = await axios.post(
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
+            {
+              meetingId: chunkMetaData.meetingId,
+              userId: userId,
+              fileType: chunkMetaData.type,
+              segmentNum: segmentNumber,
+              fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.screenShareSegmentNumber}/${chunkMetaData.chunkName}`,
+            },
+          );
+          console.log(
+            "Chunk File Key added to database",
+            addFileKeyToDbRes.data,
+          );
+        } else {
+          const addFileKeyToDbRes = await axios.post(
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFileURL`,
+            {
+              meetingId: chunkMetaData.meetingId,
+              userId: userId,
+              fileType: chunkMetaData.type,
+              segmentNum: segmentNumber,
+              fileKey: `${chunkMetaData.meetingId}/${userId}/${chunkMetaData.type}/${chunkMetaData.segmentNumber}/${chunkMetaData.chunkName}`,
+            },
+          );
+          console.log(
+            "Chunk File Key added to database",
+            addFileKeyToDbRes.data,
+          );
+        }
+        // try {
+        //   await deleteChunk(chunkMetaData);
+        // } catch (e) {
+        //   console.log(
+        //     "[WORKER] ERROR IN DELETING THE UPLOADDED CHUNK FROM INDEXED DB",
+        //     e
+        //   );
+        // }
       } catch (e) {
         console.error("Error uploading file data to db", e);
       }
@@ -326,7 +379,7 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
           return new Promise<void>((resolve) => {
             setTimeout(() => {
               console.log(
-                "Waited for 5 seconds checking again for any unuploaded chunks"
+                "Waited for 5 seconds checking again for any unuploaded chunks",
               );
               resolve();
             }, 5000);
@@ -344,7 +397,7 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
         });
         //ADD the job to bullMQ.
         //WILL HAVE TO  BE AN API THAT THE USER WILL HIT TO ADD A Job
-        axios.post("/api/addJob", {
+        axios.post(`${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/addJob`, {
           meetingId: meetingId,
           userId: userId,
         });
@@ -357,7 +410,7 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
           return new Promise((resolve) => {
             setTimeout(() => {
               console.log(
-                "Waited for 3 seconds checking again for any unuploaded chunks"
+                "Waited for 3 seconds checking again for any unuploaded chunks",
               );
               resolve("");
             }, 3000);
@@ -373,7 +426,7 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
       uploadingChunk = true;
       const updatedObjectKey = await updateChunkStatus(
         unuploadedChunk,
-        "uploading"
+        "uploading",
       );
       const uploadingChunkMetaData = await getChunkMetaData(updatedObjectKey);
       console.log("The chunk being uploaded is", uploadingChunkMetaData);
@@ -384,28 +437,28 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
           await saveToS3(
             uploadingChunkMetaData,
             userId,
-            uploadingChunkMetaData.screenShareSegmentNumber
+            uploadingChunkMetaData.screenShareSegmentNumber,
           );
         } else {
           await saveToS3(
             uploadingChunkMetaData,
             userId,
-            uploadingChunkMetaData.segmentNumber
+            uploadingChunkMetaData.segmentNumber,
           );
         }
         console.log(
-          `[Worker] Successfully uploaded: ${uploadingChunkMetaData.chunkName}`
+          `[Worker] Successfully uploaded: ${uploadingChunkMetaData.chunkName}`,
         );
       } catch (uploadError) {
         console.error(
           `[Worker] Upload failed for ${uploadingChunkMetaData.chunkName}:`,
           uploadError,
-          "changing the status back to left"
+          "changing the status back to left",
         );
 
         const updatedObjectKey = await updateChunkStatus(
           uploadingChunkMetaData,
-          "left"
+          "left",
         );
         const failedChunkMetaData = await getChunkMetaData(updatedObjectKey);
         console.log("The failedChunk is", failedChunkMetaData);
@@ -416,6 +469,27 @@ async function startUploadingMeetingChunks(meetingId: string, userId: string) {
       uploadingChunk = false;
     }
   }
+}
+
+async function deleteChunk(chunk: ChunkMetaData): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!dbInstance) {
+      reject("No DB instance found returning");
+      return;
+    }
+    const tx = dbInstance.transaction("Recordings", "readwrite");
+    const os = tx.objectStore("Recordings");
+    const deleteReq = os.delete(chunk.id);
+    deleteReq.onsuccess = () => {
+      console.log("[Worker] DELETED THE CHUNK SUCCESSFULLY");
+      resolve("");
+      return;
+    };
+    deleteReq.onerror = (e) => {
+      reject("[WORKER] COULD NOT DELETE THE CHUNK");
+      return;
+    };
+  });
 }
 
 async function getChunkMetaData(key: string): Promise<ChunkMetaData> {
@@ -447,7 +521,7 @@ async function saveChunk(
   segmentNumber: number,
   type: "audio" | "video" | "screen",
   chunk: Blob,
-  screenShareSegmentNumber?: number
+  screenShareSegmentNumber?: number,
 ): Promise<void> {
   return new Promise(async (resolve, reject) => {
     if (!dbInstance) {
@@ -476,19 +550,6 @@ async function saveChunk(
     const addReq = store.add(chunkMetaData);
 
     addReq.onsuccess = async () => {
-      // console.log("[Worker] The ", type, "chunk was stored in the db");
-      //Upload the chunk to s3
-      // const updatedObjectKey = await updateChunkStatus(
-      //   chunkMetaData,
-      //   "uploading"
-      // );
-      // const uploadingChunkMetaData = await getChunkMetaData(updatedObjectKey);
-      // console.log("The chunk being uploaded is", uploadingChunkMetaData);
-      // await saveToS3(
-      //   uploadingChunkMetaData,
-      //   userId,
-      //   uploadingChunkMetaData.segmentNumber
-      // );
       resolve();
       return;
     };
@@ -501,15 +562,15 @@ async function saveChunk(
 //Get an unuploaded chunk
 async function getUnuploadedChunk(
   meetingId?: string,
-  userId?: string
+  userId?: string,
 ): Promise<ChunkMetaData> {
   return new Promise((resolve, reject) => {
     if (!dbInstance) {
       console.log(
-        "[WORKER] GetUnuploadedChunk failed because dbInstance was not found"
+        "[WORKER] GetUnuploadedChunk failed because dbInstance was not found",
       );
       reject(
-        "[WORKER] GetUnuploadedChunk failed because dbInstance was not found"
+        "[WORKER] GetUnuploadedChunk failed because dbInstance was not found",
       );
       return;
     }
@@ -541,7 +602,7 @@ async function getUnuploadedChunk(
       //get the status first index
       const statusFirstIndex = store.index("ChunkStatusMeeting");
       const firstLeftChunkReq = statusFirstIndex.get(
-        IDBKeyRange.bound(["left", ""], ["left", "\uffff"])
+        IDBKeyRange.bound(["left", ""], ["left", "\uffff"]),
       );
       firstLeftChunkReq.onsuccess = () => {
         const firstLeftChunk = firstLeftChunkReq.result;
@@ -559,14 +620,14 @@ async function getUnuploadedChunk(
 //Update the status of a chunk
 async function updateChunkStatus(
   chunkMetaData: ChunkMetaData,
-  updatedStatus: "left" | "uploading" | "uploaded"
+  updatedStatus: "left" | "uploading" | "uploaded",
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     //Set the status of the chunk to uploaded
     if (!dbInstance) {
       console.log("NO WEB WORKER FOUND RETURNING");
       reject(
-        "[WORKER] Updating chunk status failed because no webWorker was found"
+        "[WORKER] Updating chunk status failed because no webWorker was found",
       );
       return;
     }
@@ -597,7 +658,7 @@ async function updateChunkStatus(
 //Function to get the Segment number for a userId and meetingId
 async function getSegmentNumber(
   roomId: string,
-  userId: string
+  userId: string,
 ): Promise<number> {
   return new Promise((resolve, reject) => {
     //get the heighest segmentNumber for particular roomid and userId
@@ -667,22 +728,20 @@ async function getScreenShareSegmentNumber(roomId: string, userId: string) {
   });
 }
 
-async function getAllRemainingChunksOfaUserMeeting(
-  meetingId: string,
-  userId: string
+async function getAllRemainingChunksOfaUser(
+  userId: string,
 ): Promise<ChunkMetaData[]> {
   return new Promise((resolve, reject) => {
-    //get all the chunks of a meeting id.
     if (!dbInstance) {
-      console.log("DB not ready yet!");
+      console.log("DB instance is not ready yet!");
       reject;
       return;
     }
-    console.log("THE MEETING ID IS", meetingId, "THE USERID IS", userId);
     const tx = dbInstance.transaction("Recordings", "readonly");
     const objectStore = tx.objectStore("Recordings");
-    const index = objectStore.index("userIdMeetingChunkStatus");
-    const allChunksReq = index.getAll([userId, meetingId, "left"]);
+    const index = objectStore.index("userIdChunkStatus");
+    console.log("The user Id is", userId);
+    const allChunksReq = index.getAll([userId, "left"]);
     allChunksReq.onsuccess = () => {
       const allChunks = allChunksReq.result;
       resolve(allChunks);
@@ -696,41 +755,107 @@ async function getAllRemainingChunksOfaUserMeeting(
   });
 }
 
-// async function saveAllTheRemainingChunksToS3(
-//   meetingId: string,
-//   userId: string
-// ) {
-//   const allLeftChunks = await getAllRemainingChunksOfaUserMeeting(
-//     meetingId,
-//     userId
-//   );
+async function getAllRemainingUploadingChunksOfaUser(
+  userId: string,
+): Promise<ChunkMetaData[]> {
+  return new Promise((resolve, reject) => {
+    if (!dbInstance) {
+      console.log("DB instance is not ready yet!");
+      reject;
+      return;
+    }
+    const tx = dbInstance.transaction("Recordings", "readonly");
+    const objectStore = tx.objectStore("Recordings");
+    const index = objectStore.index("userIdChunkStatus");
+    console.log("The user Id is", userId);
+    const allChunksReq = index.getAll([userId, "uploading"]);
+    allChunksReq.onsuccess = () => {
+      const allChunks = allChunksReq.result;
+      resolve(allChunks);
+      return;
+    };
+    allChunksReq.onerror = () => {
+      console.log("Error in finding all the unuploaded chunks");
+      reject;
+      return;
+    };
+  });
+}
 
-//   console.log("All left chunks are ", allLeftChunks);
-//   if (allLeftChunks.length == 0) {
-//     console.log("All chunks have been successfully uploaded or are uploading");
-//     postMessage({ event: "allChunksUploadedAlready" });
-//     return;
-//   }
+async function saveAllTheRemainingChunksToS3(userId: string) {
+  const allLeftChunks = await getAllRemainingChunksOfaUser(userId);
+  const allUploadingChunks =
+    await getAllRemainingUploadingChunksOfaUser(userId);
 
-//   //Upload them to s3
-//   try {
-//     await Promise.all(
-//       allLeftChunks.map(async (chunk: ChunkMetaData) => {
-//         await saveToS3(chunk, userId, chunk.segmentNumber);
-//       })
-//     );
-//     //After all the chunks have been saved to the s3,
-//     postMessage({
-//       event: "allLeftChunksUploaded",
-//     });
-//     //Send the consolidate files msg to the backend process.
-//     //There it will check if the consolidation process is under process, has already been done, or is in the queue.
-//   } catch (e) {
-//     console.log("Could not upload the chunks to s3.", e);
-//   }
-// }
+  console.log("All left chunks are ", allLeftChunks);
+  if (allLeftChunks.length == 0) {
+    console.log("All chunks have been successfully uploaded or are uploading");
+    postMessage({ event: "allChunksUploadedAlready" });
+    return;
+  }
+  console.log(
+    "The uploading chunks which were left previously are",
+    allUploadingChunks,
+  );
+  const startJobforMeetingIds: string[] = [];
+  //Upload them to s3
+  try {
+    await Promise.all(
+      allLeftChunks.map(async (chunk: ChunkMetaData) => {
+        try {
+          console.log("uploading chunk for meeting Id", chunk.meetingId);
+          await saveToS3(chunk, userId, chunk.segmentNumber);
+          if (!startJobforMeetingIds.includes(chunk.meetingId)) {
+            startJobforMeetingIds.push(chunk.meetingId);
+          }
+        } catch (e) {
+          console.log("Failed to upload chunk", e);
+        }
+      }),
+    );
+    if (allUploadingChunks.length > 0) {
+      console.log("Uploading chunks with status uploading");
+      await Promise.all(
+        allUploadingChunks.map(async (chunk) => {
+          try {
+            console.log("uploading chunk for meeting Id", chunk.meetingId);
+            await saveToS3(chunk, userId, chunk.segmentNumber);
+            if (!startJobforMeetingIds.includes(chunk.meetingId)) {
+              startJobforMeetingIds.push(chunk.meetingId);
+            }
+          } catch (e) {
+            console.log("Failed to upload chunk", e);
+          }
+        }),
+      );
+    }
 
-//A function to send the backend process a request to start the consolidation of all the files.
+    await Promise.all(
+      startJobforMeetingIds.map(async (meetingId) => {
+        try {
+          const res = await axios.post(
+            `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/addJob`,
+            {
+              userId: userId,
+              meetingId: meetingId,
+            },
+          );
+        } catch (e) {
+          console.log("FAILED TO START A JOB", e);
+        }
+      }),
+    );
+
+    //After all the chunks have been saved to the s3,
+    postMessage({
+      event: "allLeftChunksUploaded",
+    });
+    //Send the consolidate files msg to the backend process.
+    //There it will check if the consolidation process is under process, has already been done, or is in the queue.
+  } catch (e) {
+    console.log("Could not upload the chunks to s3.", e);
+  }
+}
 
 // Handle messages from main thread
 self.onmessage = async (msg) => {
@@ -758,7 +883,7 @@ self.onmessage = async (msg) => {
         segmentNumber,
         type,
         chunk,
-        msg.data.screenShareSegmentNumber
+        msg.data.screenShareSegmentNumber,
       );
     } else {
       await saveChunk(id, userId, roomId, segmentNumber, type, chunk);
@@ -781,18 +906,17 @@ self.onmessage = async (msg) => {
       event: "screenSegmentNumber",
     });
   }
-  // if (event == "saveAllTheRemainingChunksToS3") {
-  //   const { roomId, userId } = msg.data;
-  //   console.log("receieved ", roomId, "userId is", userId);
 
-  //   await saveAllTheRemainingChunksToS3(roomId, userId);
-  // }
   if (event == "MeetingRecordingStopped") {
-    console.log("The meeting recording has been stoppeeeeeeeeedddddddddd");
+    console.log("The meeting recording has been stopped");
     MeetingRecordingStopped = true;
   }
   if (event == "closeDB") {
     console.log("Closing the db");
     dbInstance?.close();
+  }
+  if (event == "checkandUploadLeftMeetingsChunks") {
+    const { userId } = msg.data;
+    saveAllTheRemainingChunksToS3(userId);
   }
 };

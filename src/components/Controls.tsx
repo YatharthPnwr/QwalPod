@@ -158,6 +158,7 @@ export default function Controls(props: ControlsInput) {
                     return;
                   }
                   console.log("Stopping screen share");
+                  props.screenShareRecorderRef.current?.stop();
                   props.srcScreenShareStream
                     .getTracks()
                     .forEach((track) => track.stop());

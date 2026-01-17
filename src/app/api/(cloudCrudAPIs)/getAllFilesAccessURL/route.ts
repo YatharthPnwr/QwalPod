@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
 import { getGETPresignedURL } from "@/utils/functions/getGETPresignedURL";
 
-// interface userKeyPath {
-//   userId: string;
-//   videoFileKeys: string[] | null;
-//   audioChunkKeys: string[] | null;
-//   // thumbnailFileKey: string | null;
-// }
 interface finalAudioChunkKeys {
   audioChunkKeys: {
     [segmentNumber: number]: string[];
@@ -24,11 +18,6 @@ interface finalScreenAudioAndVideoChunkKeys {
   screenChunkKeys: {
     [segmentNumber: number]: string[];
   };
-}
-interface getAllFileAccessURLResponse {
-  audioChunkSegments: finalAudioChunkKeys;
-  videoChunkSegments: finalVideoChunkKeys;
-  screenChunkSegments: finalScreenAudioAndVideoChunkKeys;
 }
 
 export async function POST(req: NextRequest) {

@@ -39,6 +39,10 @@ const worker = new Worker(
   "consolidateFiles",
   async (job) => {
     //JOB WILL CONTAIN the meetingID and the userID
+    if (fs.existsSync(`./down`)) {
+      console.log("removing the down folder");
+      fs.rmSync(`./down`, { recursive: true });
+    }
     const userId = job.data.userId;
     const meetingId = job.data.meetingId;
     console.log("Runninng the worker for user", userId, "meeting", meetingId);
@@ -49,26 +53,85 @@ const worker = new Worker(
         {
           meetingId: meetingId,
           userId: userId,
-        }
+        },
       );
       const allChunkAccessURLs: getAllFileAccessURLResponse =
         allChunkAccessURLsReq.data;
-      console.dir("THE CHUNK URLS RECEIVED ARE,", allChunkAccessURLs);
+      console.log("THE CHUNK URLS RECEIVED ARE,", allChunkAccessURLs);
       //2.map each media types segments and then chunks and then finally download each chunk in the fs in the same directory as mentioned
       //2.1 for each media type get the number of segments.
       //Iterate over each segment of that type and then fetch and save.
       const audioSegments = Object.keys(
-        allChunkAccessURLs.audioChunkSegments.audioChunkKeys
+        allChunkAccessURLs.audioChunkSegments.audioChunkKeys,
       );
       const videoSegments = Object.keys(
-        allChunkAccessURLs.videoChunkSegments.videoChunkKeys
+        allChunkAccessURLs.videoChunkSegments.videoChunkKeys,
       );
       const screenSegments = Object.keys(
-        allChunkAccessURLs.screenChunkSegments.screenChunkKeys
+        allChunkAccessURLs.screenChunkSegments.screenChunkKeys,
       );
-      console.log("The audioSegments keys are", audioSegments);
-      console.log("The videoSegment keys are", videoSegments);
-      console.log("The screenSegment keys are", screenSegments);
+      // console.log("The audioSegments keys are", audioSegments);
+      // console.log("The videoSegment keys are", videoSegments);
+      // console.log("The screenSegment keys are", screenSegments);
+      // console.log(
+      //   "THe screen links are",
+      //   allChunkAccessURLs.videoChunkSegments.videoChunkKeys
+      // );
+
+      console.log("Downloading the screen chunks");
+      //Download screen Chunks (if any)
+      await Promise.all(
+        screenSegments.map(async (segment) => {
+          //For each segment
+          const fetchLinks =
+            allChunkAccessURLs.screenChunkSegments.screenChunkKeys[
+              Number(segment)
+            ];
+          //Save the chunk in the server
+          await Promise.all(
+            fetchLinks.map(async (link) => {
+              const res = await fetch(link);
+              console.log(
+                `Screen fetch status: ${res.status}, Content-Length: ${res.headers.get("content-length")}`,
+              );
+              if (!res.ok) {
+                console.log(`Fetch failed for ${link}`);
+                return;
+              }
+              if (!res.body) {
+                console.log("NOTHING TO DOWNLOAD");
+                return;
+              }
+              if (!fs.existsSync(`down/screen/${segment}`)) {
+                await mkdir(`down/screen/${segment}`, { recursive: true });
+              }
+              const filename = getFileName(link);
+              const destination = path.resolve(
+                `./down/screen/${segment}`,
+                filename,
+              );
+              try {
+                //Write the file to the filePath as in the link
+                const fileStream = fs.createWriteStream(destination, {
+                  flags: "wx",
+                });
+                await finished(
+                  Readable.fromWeb(res.body as any).pipe(fileStream),
+                );
+                const downloadedSize = fs.statSync(destination).size;
+                console.log(
+                  `Downloaded ${filename}: ${downloadedSize} bytes (expected: ${res.headers.get("content-length")})`,
+                );
+              } catch (e) {
+                console.log(
+                  "Error occured while saving the chunks of screen file.",
+                  e,
+                );
+              }
+            }),
+          );
+        }),
+      );
 
       console.log("Downloading the audio chunks");
       //Download Audio chunks
@@ -83,28 +146,35 @@ const worker = new Worker(
           await Promise.all(
             fetchLinks.map(async (link) => {
               const res = await fetch(link);
+              console.log(
+                `audio fetch status: ${res.status}, Content-Length: ${res.headers.get("content-length")}`,
+              );
+              if (!res.ok) {
+                console.log(`Fetch failed for ${link}`);
+                return;
+              }
               if (!res.body) {
                 console.log("NOTHING TO DOWNLOAD");
                 return;
               }
-              if (!fs.existsSync(`downloads/audio/${segment}`)) {
-                await mkdir(`downloads/audio/${segment}`, { recursive: true });
+              if (!fs.existsSync(`down/audio/${segment}`)) {
+                await mkdir(`down/audio/${segment}`, { recursive: true });
               }
               const filename = getFileName(link);
               const destination = path.resolve(
-                `./downloads/audio/${segment}`,
-                filename
+                `./down/audio/${segment}`,
+                filename,
               );
               //Write the file to the filePath as in the link
               const fileStream = fs.createWriteStream(destination, {
                 flags: "wx",
               });
               await finished(
-                Readable.fromWeb(res.body as any).pipe(fileStream)
+                Readable.fromWeb(res.body as any).pipe(fileStream),
               );
-            })
+            }),
           );
-        })
+        }),
       );
       console.log("Downloading the video chunks");
       //Download Video chunks
@@ -119,64 +189,39 @@ const worker = new Worker(
           await Promise.all(
             fetchLinks.map(async (link) => {
               const res = await fetch(link);
+              console.log(
+                `video fetch status: ${res.status}, Content-Length: ${res.headers.get("content-length")}`,
+              );
+              if (!res.ok) {
+                console.log(`Fetch failed for ${link}`);
+                return;
+              }
               if (!res.body) {
                 console.log("NOTHING TO DOWNLOAD");
                 return;
               }
-              if (!fs.existsSync(`downloads/video/${segment}`)) {
-                await mkdir(`downloads/video/${segment}`, { recursive: true });
+              if (!fs.existsSync(`down/video/${segment}`)) {
+                await mkdir(`down/video/${segment}`, { recursive: true });
               }
               const filename = getFileName(link);
               const destination = path.resolve(
-                `./downloads/video/${segment}`,
-                filename
+                `./down/video/${segment}`,
+                filename,
               );
-              //Write the file to the filePath as in the link
-              const fileStream = fs.createWriteStream(destination, {
-                flags: "wx",
-              });
-              await finished(
-                Readable.fromWeb(res.body as any).pipe(fileStream)
-              );
-            })
-          );
-        })
-      );
-      console.log("Downloading the screen chunks");
-      //Download screen Chunks (if any)
-      await Promise.all(
-        screenSegments.map(async (segment) => {
-          //For each segment
-          const fetchLinks =
-            allChunkAccessURLs.screenChunkSegments.screenChunkKeys[
-              Number(segment)
-            ];
-          //Save the chunk in the server
-          await Promise.all(
-            fetchLinks.map(async (link) => {
-              const res = await fetch(link);
-              if (!res.body) {
-                console.log("NOTHING TO DOWNLOAD");
-                return;
+              try {
+                //Write the file to the filePath as in the link
+                const fileStream = fs.createWriteStream(destination, {
+                  flags: "wx",
+                });
+                await finished(
+                  Readable.fromWeb(res.body as any).pipe(fileStream),
+                );
+              } catch (e) {
+                console.log("Error occured while writing video file", e);
               }
-              if (!fs.existsSync(`downloads/screen/${segment}`)) {
-                await mkdir(`downloads/screen/${segment}`, { recursive: true });
-              }
-              const filename = getFileName(link);
-              const destination = path.resolve(
-                `./downloads/audio/${segment}`,
-                filename
-              );
-              //Write the file to the filePath as in the link
-              const fileStream = fs.createWriteStream(destination, {
-                flags: "wx",
-              });
-              await finished(
-                Readable.fromWeb(res.body as any).pipe(fileStream)
-              );
-            })
+            }),
           );
-        })
+        }),
       );
 
       //3. Make blobs of each segment number for audio, video and screen chunks, by accessing them from the filesystem.
@@ -185,35 +230,35 @@ const worker = new Worker(
       await Promise.all(
         audioSegments.map(async (segment) => {
           const audioBlob: Blob[] = [];
-          const files = fs.readdirSync(`./downloads/audio/${segment}`);
+          const files = fs.readdirSync(`./down/audio/${segment}`);
           await Promise.all(
             files.map(async (fileName) => {
               const file = await fs.openAsBlob(
-                `./downloads/audio/${segment}/${fileName}`
+                `./down/audio/${segment}/${fileName}`,
               );
               audioBlob.push(file);
-            })
+            }),
           );
           //create a new blob and save it in the same folder as finalAudioFile
           const finalAudioBlob = new Blob(audioBlob);
-          console.log("audio blob array is", audioBlob);
+          // console.log("audio blob array is", audioBlob);
           try {
             const arrayBuffer = await finalAudioBlob.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
             fs.writeFileSync(
-              `./downloads/audio/finalAudioBlob_${segment}.webm`,
-              buffer
+              `./down/audio/finalAudioBlob_${segment}.webm`,
+              buffer,
             );
 
             try {
               const convertProcess = await new ffmpeg(
-                `./downloads/audio/finalAudioBlob_${segment}.webm`
+                `./down/audio/finalAudioBlob_${segment}.webm`,
               );
               // Convert .webm to .mp4 with compatible codecs
               //ffmpeg -i input.webm -vn -acodec libmp3lame -q:a 0 output.mp3
               convertProcess.fnExtractSoundToMP3;
               await convertProcess.save(
-                `./downloads/audio/finalAudioBlob_${segment}.mp3`
+                `./down/audio/finalAudioBlob_${segment}.mp3`,
               );
               await uploadBlobsToS3(
                 meetingId,
@@ -221,7 +266,7 @@ const worker = new Worker(
                 "audio",
                 "audio/mp3",
                 Number(segment),
-                `./downloads/audio/finalAudioBlob_${segment}.mp3`
+                `./down/audio/finalAudioBlob_${segment}.mp3`,
               );
               await uploadBlobsToS3(
                 meetingId,
@@ -229,7 +274,7 @@ const worker = new Worker(
                 "audio",
                 "audio/mp3",
                 Number(segment),
-                `./downloads/audio/finalAudioBlob_${segment}.mp3`
+                `./down/audio/finalAudioBlob_${segment}.mp3`,
               );
               //Add the filePath to the DB
               const filePath = `${meetingId}/${userId}/audio/${segment}/Final_audio_${segment}`;
@@ -242,7 +287,7 @@ const worker = new Worker(
                     fileType: "audio",
                     segmentNum: Number(segment),
                     fileKey: filePath,
-                  }
+                  },
                 );
               } catch (e) {
                 console.log("Error in adding the filepath to db", e);
@@ -255,56 +300,80 @@ const worker = new Worker(
           } catch (e) {
             console.log("Error occured in writing the final Audio file");
           }
-        })
+        }),
       );
 
       console.log("MAKING THE VIDEO BLOB AND UPLOADING TO S3");
       await Promise.all(
         videoSegments.map(async (segment) => {
           const videoBlob: Blob[] = [];
-          const files = fs.readdirSync(`./downloads/video/${segment}`);
+          const files = fs.readdirSync(`./down/video/${segment}`);
           await Promise.all(
             files.map(async (fileName) => {
               const file = await fs.openAsBlob(
-                `./downloads/video/${segment}/${fileName}`
+                `./down/video/${segment}/${fileName}`,
               );
               videoBlob.push(file);
-            })
+            }),
           );
           //create a new blob and save it in the same folder as finalAudioFile
           const finalVideoBlob = new Blob(videoBlob);
-          console.log("video blob array is", videoBlob);
+          // console.log("video blob array is", videoBlob);
           try {
             const arrayBuffer = await finalVideoBlob.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
             fs.writeFileSync(
-              `./downloads/video/finalVideoBlob_${segment}.webm`,
-              buffer
+              `./down/video/finalVideoBlob_${segment}.webm`,
+              buffer,
             );
             //Convert the .webm file to mp3 file.
             try {
               const convertProcess = await new ffmpeg(
-                `./downloads/video/finalVideoBlob_${segment}.webm`
+                `./down/video/finalVideoBlob_${segment}.webm`,
               );
               // Convert .webm to .mp4 with compatible codecs
               convertProcess.setVideoFormat("mp4");
               // convertProcess.setVideoCodec("libx264"); // H.264 for video
               // convertProcess.setAudioCodec("aac"); // AAC for audio
               await convertProcess.save(
-                `./downloads/video/finalVideoBlob_${segment}.mp4`
+                `./down/video/finalVideoBlob_${segment}.mp4`,
               );
-              // const finalSegmentBuffer = Buffer.from(finalSegmentFileBuffer);
+              console.log("extracting the thumbnail");
+              //Generate the thumbnail
+              const thumbnailProcess = await new ffmpeg(
+                `./down/video/finalVideoBlob_${segment}.webm`,
+              );
+              try {
+                await thumbnailProcess.fnExtractFrameToJPG(`./down/video`, {
+                  number: 1,
+                  file_name: `Thumbnail_${segment}`,
+                });
+                // fnExtractFrameToJPG already saves the file - no need for save()
+              } catch (e) {
+                console.log("Error in extracting the thumbnail of video", e);
+              }
+              // console.log("Saving the thumbnail video");
+              // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
+              await saveThumbnailToS3(
+                `Thumbnail_${segment}`,
+                "video",
+                meetingId,
+                userId,
+                Number(segment),
+                `./down/video/Thumbnail_${segment}_1.jpg`,
+              );
               await uploadBlobsToS3(
                 meetingId,
                 userId,
                 "video",
                 "video/mp4",
                 Number(segment),
-                `./downloads/video/finalVideoBlob_${segment}.mp4`
+                `./down/video/finalVideoBlob_${segment}.mp4`,
               );
 
               //Add the filePath to the DB
               const filePath = `${meetingId}/${userId}/video/${segment}/Final_video_${segment}`;
+              const screenThumbnailFilePath = `${meetingId}/${userId}/video/${segment}/Thumbnail_${segment}`;
               try {
                 await axios.post(
                   `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
@@ -314,32 +383,33 @@ const worker = new Worker(
                     fileType: "video",
                     segmentNum: Number(segment),
                     fileKey: filePath,
-                  }
+                    thumbnailFileKey: screenThumbnailFilePath,
+                  },
                 );
               } catch (e) {
                 console.log("Error in adding the filepath to db", e);
               }
-              console.log("DONE UPLOADING THE SEGMENT VIDEO TO CLOUD");
+              console.log("DONE UPLOADING THE VIDEO SEGMENT TO CLOUD");
             } catch (e) {
               console.log("Error occured in converting to mp4", e);
             }
           } catch (e) {
             console.log("Error occured in writing the final Video file");
           }
-        })
+        }),
       );
 
       await Promise.all(
         screenSegments.map(async (segment) => {
           const screenBlob: Blob[] = [];
-          const files = fs.readdirSync(`./downloads/screen/${segment}`);
+          const files = fs.readdirSync(`./down/screen/${segment}`);
           await Promise.all(
             files.map(async (fileName) => {
               const file = await fs.openAsBlob(
-                `./downloads/screen/${segment}/${fileName}`
+                `./down/screen/${segment}/${fileName}`,
               );
               screenBlob.push(file);
-            })
+            }),
           );
           //create a new blob and save it in the same folder as finalAudioFile
           const finalScreenBlob = new Blob(screenBlob);
@@ -349,20 +419,42 @@ const worker = new Worker(
             const arrayBuffer = await finalScreenBlob.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
             fs.writeFileSync(
-              `./downloads/screen/finalScreenBlob_${Number(segment)}.webm`,
-              buffer
+              `./down/screen/finalScreenBlob_${segment}.webm`,
+              buffer,
             );
             //covert the video to mp4.
 
             //Convert the .webm file to mp3 file.
             try {
               const convertProcess = await new ffmpeg(
-                `./downloads/screen/finalVideoBlob_${segment}.webm`
+                `./down/screen/finalScreenBlob_${segment}.webm`,
               );
               // Convert .webm to .mp4 with compatible codecs
               convertProcess.setVideoFormat("mp4");
               await convertProcess.save(
-                `./downloads/screen/finalVideoBlob_${segment}.mp4`
+                `./down/screen/finalScreenBlob_${segment}.mp4`,
+              );
+              //Generate the thumbnail
+              const thumbnailProcess = await new ffmpeg(
+                `./down/screen/finalScreenBlob_${segment}.mp4`,
+              );
+              try {
+                await thumbnailProcess.fnExtractFrameToJPG(`./down/screen`, {
+                  number: 1,
+                  file_name: `Thumbnail_${segment}`,
+                });
+                // fnExtractFrameToJPG already saves the file - no need for save()
+              } catch (e) {
+                console.log("error in getting the thumbnail", e);
+              }
+              // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
+              await saveThumbnailToS3(
+                `Thumbnail_${segment}`,
+                "screen",
+                meetingId,
+                userId,
+                Number(segment),
+                `./down/screen/Thumbnail_${segment}_1.jpg`,
               );
               await uploadBlobsToS3(
                 meetingId,
@@ -370,10 +462,11 @@ const worker = new Worker(
                 "screen",
                 "video/mp4",
                 Number(segment),
-                `./downloads/screen/finalVideoBlob_${segment}.mp4`
+                `./down/screen/finalScreenBlob_${segment}.mp4`,
               );
               //Add the filePath to the DB
-              const filePath = `${meetingId}/${userId}/screen/${segment}/Final_screen_${segment}`;
+              const screenfilePath = `${meetingId}/${userId}/screen/${segment}/Final_screen_${segment}`;
+              const screenThumbnailFilePath = `${meetingId}/${userId}/screen/${segment}/Thumbnail_${segment}`;
               try {
                 await axios.post(
                   `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
@@ -382,33 +475,34 @@ const worker = new Worker(
                     userId: userId,
                     fileType: "screen",
                     segmentNum: Number(segment),
-                    fileKey: filePath,
-                  }
+                    fileKey: screenfilePath,
+                    thumbnailFileKey: screenThumbnailFilePath,
+                  },
                 );
               } catch (e) {
                 console.log("Error in adding the filepath to db", e);
               }
 
-              console.log("DONE UPLOADING THE FINAL SEGMENT SCREEN TO CLOUD");
+              console.log("DONE UPLOADING THE FINAL SCREEN SEGMENT TO CLOUD");
             } catch (e) {
               console.log("Error occured in converting to mp4", e);
             }
           } catch (e) {
             console.log("Error occured in writing the final Screen file", e);
           }
-        })
+        }),
       );
 
       //4. Convert the all the multiple chunks of audio video and screenchunks to .mp3 / .mp4 files using ffmpeg.
       //5. get the presignedURL to upload the final files to the s3 under the folder name meetingId/userId/final/audio/
       //6. insert the filepath in the database.
       //7. delete the files from the servers filesystem.
-      fs.rmSync("downloads", { recursive: true });
+      fs.rmSync("./down", { recursive: true });
     } catch (e) {
       console.log("axios error", e);
     }
   },
-  { connection }
+  { connection },
 );
 
 function getFileName(url: string) {
@@ -429,9 +523,9 @@ async function uploadBlobsToS3(
   meetingId: string,
   userId: string,
   typeOfFile: "audio" | "video" | "screen",
-  contentType: "audio/webm" | "video/webm" | "audio/mp3" | "video/mp4",
+  contentType: "audio/mp3" | "video/mp4",
   segmentNumber: number,
-  filePath: string
+  filePath: string,
 ) {
   const finalSegmentFileBuffer = fs.readFileSync(filePath);
   const fileBuffer = Buffer.from(finalSegmentFileBuffer);
@@ -444,12 +538,12 @@ async function uploadBlobsToS3(
       meetingId: meetingId,
       userId: userId,
       segmentNumber: segmentNumber,
-    }
+    },
   );
 
   // get uploadId
   let { uploadId } = response.data;
-  console.log("UploadId for the multiparts upload is -", uploadId);
+  // console.log("UploadId for the multiparts upload is -", uploadId);
 
   // get total size of the finalFile
   let totalSize = fileBuffer.byteLength;
@@ -458,9 +552,9 @@ async function uploadBlobsToS3(
   // calculate number of chunks
   let numChunks = Math.ceil(totalSize / chunkSize);
 
-  console.log("Total file size:", totalSize);
-  console.log("Chunk size:", chunkSize);
-  console.log("Number of chunks:", numChunks);
+  // console.log("Total file size:", totalSize);
+  // console.log("Chunk size:", chunkSize);
+  // console.log("Number of chunks:", numChunks);
 
   // generate presigned urls
   let presignedUrls_response = await axios.post(
@@ -473,7 +567,7 @@ async function uploadBlobsToS3(
       userId: userId,
       fileType: typeOfFile,
       segmentNumber: segmentNumber,
-    }
+    },
   );
 
   let presigned_urls = presignedUrls_response?.data?.presignedUrls;
@@ -492,7 +586,7 @@ async function uploadBlobsToS3(
           headers: {
             "Content-Type": contentType,
           },
-        })
+        }),
       );
     } catch (e) {
       console.log("Error occured while pushing", e);
@@ -523,8 +617,58 @@ async function uploadBlobsToS3(
       userId: userId,
       fileType: typeOfFile,
       segmentNumber: segmentNumber,
-    }
+    },
   );
 
-  console.log("Complete upload- ", complete_upload.data);
+  // console.log("Complete upload- ", complete_upload.data);
+}
+
+async function saveThumbnailToS3(
+  fileName: string,
+  fileCategory: string,
+  meetingId: string,
+  userId: string,
+  segmentNumber: number,
+  thumbnailPath: string,
+) {
+  // check finalFile size if it is less than 10MB
+  // Call your API to get the presigned URL
+  try {
+    const file = fs.readFileSync(thumbnailPath);
+
+    const response = await axios.post(
+      `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/getSinglePresignedURL`,
+      {
+        fileName: fileName,
+        fileCategory: fileCategory,
+        fileType: "image/jpeg",
+        meetingId: meetingId,
+        userId: userId,
+        segmentNumber: segmentNumber,
+      },
+    );
+    const { url } = response.data;
+    // console.log("The presigned url is", url);
+    // Use the presigned URL to upload the finalFile
+    try {
+      const uploadResponse = await axios.put(url, file, {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "x-amz-acl": "public-read",
+        },
+      });
+
+      if (uploadResponse.status === 200) {
+        console.log("Uploaded the thumbnail");
+      }
+      //Add the fileKey of the audio file and the video file to the database table Recording.
+    } catch (uploadError) {
+      if (axios.isAxiosError(uploadError)) {
+        throw new Error(`Response data:, ${uploadError.response?.data}`);
+      }
+      throw new Error(`Upload request failed: ${uploadError}`);
+    }
+  } catch (e) {
+    console.log("error occured in reading file", e);
+  }
 }

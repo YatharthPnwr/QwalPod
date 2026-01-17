@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { meetingId, userId, fileType, fileKey, segmentNum } = body;
+  const { meetingId, userId, fileType, fileKey, segmentNum, thumbnailFileKey } =
+    body;
   if (fileType == "audio") {
     try {
       await prisma.finalAudioKey.create({
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
           MeetingId: meetingId,
           VideoFileKey: fileKey,
           segmentNum: segmentNum,
+          ThumbnailFileKey: thumbnailFileKey,
         },
       });
       return NextResponse.json(
@@ -76,27 +78,7 @@ export async function POST(req: NextRequest) {
           MeetingId: meetingId,
           ScreenFileKey: fileKey,
           segmentNum: segmentNum,
-        },
-      });
-      return NextResponse.json(
-        { msg: "Successfully added fileKey to the DB." },
-        { status: 201 }
-      );
-    } catch (e) {
-      console.log(e);
-      return NextResponse.json(
-        { msg: "Error saving FileKey to database" },
-        { status: 500 }
-      );
-    }
-  } else if (fileType == "thumbnail") {
-    try {
-      await prisma.finalThumbnailKey.create({
-        data: {
-          userId: userId,
-          MeetingId: meetingId,
-          ThumbnailFileKey: fileKey,
-          segmentNum: segmentNum,
+          ThumbnailFileKey: thumbnailFileKey,
         },
       });
       return NextResponse.json(
