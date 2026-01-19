@@ -20,10 +20,10 @@ export async function POST(req: NextRequest) {
 
   //Find the fileKeys of the thumbnail
   try {
-    const thumbnailFileKeys = await prisma.recordings.findMany({
+    const thumbnailFileKeys = await prisma.finalVideoKey.findMany({
       select: {
-        thumbnailFileKey: true,
-        meetingId: true,
+        ThumbnailFileKey: true,
+        MeetingId: true,
       },
       where: {
         userId: userId,
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
     //For each file key find the url
     const thumbnailURLs: thumbnailURL[] = [];
     thumbnailFileKeys.forEach((meeting) => {
-      const fileKey = meeting.thumbnailFileKey as string;
-      const meetingId = meeting.meetingId;
+      const fileKey = meeting.ThumbnailFileKey as string;
+      const meetingId = meeting.MeetingId;
       let thumbnailURL;
-      if (meeting.thumbnailFileKey) {
+      if (meeting.ThumbnailFileKey) {
         thumbnailURL = getGETPresignedURL(fileKey, username as string);
       }
       const thumbnailLinkAndMeetingId: thumbnailURL = {

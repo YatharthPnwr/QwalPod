@@ -8,7 +8,7 @@ import * as path from "path";
 import { mkdir } from "fs/promises";
 import { Readable } from "stream";
 import { finished } from "stream/promises";
-import ffmpeg from "ffmpeg";
+import ffmpeg from "fluent-ffmpeg";
 
 interface finalAudioChunkKeys {
   audioChunkKeys: {
@@ -227,277 +227,348 @@ const worker = new Worker(
       //3. Make blobs of each segment number for audio, video and screen chunks, by accessing them from the filesystem.
       //DO IT FOR AUDIO
       console.log("MAKING THE AUDIO BLOB AND UPLOADING TO S3");
-      await Promise.all(
-        audioSegments.map(async (segment) => {
-          const audioBlob: Blob[] = [];
-          const files = fs.readdirSync(`./down/audio/${segment}`);
-          await Promise.all(
-            files.map(async (fileName) => {
-              const file = await fs.openAsBlob(
-                `./down/audio/${segment}/${fileName}`,
-              );
-              audioBlob.push(file);
-            }),
+      for (const segment of audioSegments) {
+        const audioBlob: Blob[] = [];
+        const files = fs.readdirSync(`./down/audio/${segment}`);
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/audio/${segment}/${fileName}`,
           );
-          //create a new blob and save it in the same folder as finalAudioFile
-          const finalAudioBlob = new Blob(audioBlob);
-          // console.log("audio blob array is", audioBlob);
+          audioBlob.push(file);
+        }
+        //create a new blob and save it in the same folder as finalAudioFile
+        const finalAudioBlob = new Blob(audioBlob);
+        // console.log("audio blob array is", audioBlob);
+        try {
+          const arrayBuffer = await finalAudioBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(
+            `./down/audio/finalAudioBlob_${segment}.webm`,
+            buffer,
+          );
+
           try {
-            const arrayBuffer = await finalAudioBlob.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            fs.writeFileSync(
-              `./down/audio/finalAudioBlob_${segment}.webm`,
-              buffer,
+            await new Promise<void>((resolve, reject) => {
+              ffmpeg(`./down/audio/finalAudioBlob_${segment}.webm`)
+                .audioCodec("libmp3lame")
+                .audioBitrate("128k")
+                .output(`./down/audio/finalAudioBlob_${segment}.mp3`)
+                .on("end", () => {
+                  console.log("Audio conversion complete");
+                  resolve();
+                })
+                .on("error", (err) => {
+                  console.log("Audio conversion error:", err);
+                  reject(err);
+                })
+                .run();
+            });
+            await uploadBlobsToS3(
+              meetingId,
+              userId,
+              "audio",
+              "audio/mp3",
+              Number(segment),
+              `./down/audio/finalAudioBlob_${segment}.mp3`,
             );
-
+            //Add the filePath to the DB
+            const filePath = `${meetingId}/${userId}/audio/${segment}/Final_audio_${segment}`;
             try {
-              const convertProcess = await new ffmpeg(
-                `./down/audio/finalAudioBlob_${segment}.webm`,
+              await axios.post(
+                `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
+                {
+                  meetingId: meetingId,
+                  userId: userId,
+                  fileType: "audio",
+                  segmentNum: Number(segment),
+                  fileKey: filePath,
+                },
               );
-              // Convert .webm to .mp4 with compatible codecs
-              //ffmpeg -i input.webm -vn -acodec libmp3lame -q:a 0 output.mp3
-              convertProcess.fnExtractSoundToMP3;
-              await convertProcess.save(
-                `./down/audio/finalAudioBlob_${segment}.mp3`,
-              );
-              await uploadBlobsToS3(
-                meetingId,
-                userId,
-                "audio",
-                "audio/mp3",
-                Number(segment),
-                `./down/audio/finalAudioBlob_${segment}.mp3`,
-              );
-              await uploadBlobsToS3(
-                meetingId,
-                userId,
-                "audio",
-                "audio/mp3",
-                Number(segment),
-                `./down/audio/finalAudioBlob_${segment}.mp3`,
-              );
-              //Add the filePath to the DB
-              const filePath = `${meetingId}/${userId}/audio/${segment}/Final_audio_${segment}`;
-              try {
-                await axios.post(
-                  `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
-                  {
-                    meetingId: meetingId,
-                    userId: userId,
-                    fileType: "audio",
-                    segmentNum: Number(segment),
-                    fileKey: filePath,
-                  },
-                );
-              } catch (e) {
-                console.log("Error in adding the filepath to db", e);
-              }
-
-              console.log("DONE UPLOADING THE FINAL SEGMENT AUDIO TO CLOUD");
             } catch (e) {
-              console.log("Error occured in converting to mp4", e);
+              console.log("Error in adding the filepath to db", e);
             }
+
+            console.log("DONE UPLOADING THE FINAL SEGMENT AUDIO TO CLOUD");
           } catch (e) {
-            console.log("Error occured in writing the final Audio file");
+            console.log("Error occured in converting to mp4", e);
           }
-        }),
-      );
+        } catch (e) {
+          console.log("Error occured in writing the final Audio file");
+        }
+      }
 
       console.log("MAKING THE VIDEO BLOB AND UPLOADING TO S3");
-      await Promise.all(
-        videoSegments.map(async (segment) => {
-          const videoBlob: Blob[] = [];
-          const files = fs.readdirSync(`./down/video/${segment}`);
-          await Promise.all(
-            files.map(async (fileName) => {
-              const file = await fs.openAsBlob(
-                `./down/video/${segment}/${fileName}`,
-              );
-              videoBlob.push(file);
-            }),
+      for (const segment of videoSegments) {
+        const videoBlob: Blob[] = [];
+        const files = fs.readdirSync(`./down/video/${segment}`);
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/video/${segment}/${fileName}`,
           );
-          //create a new blob and save it in the same folder as finalAudioFile
-          const finalVideoBlob = new Blob(videoBlob);
-          // console.log("video blob array is", videoBlob);
-          try {
-            const arrayBuffer = await finalVideoBlob.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            fs.writeFileSync(
-              `./down/video/finalVideoBlob_${segment}.webm`,
-              buffer,
-            );
-            //Convert the .webm file to mp3 file.
-            try {
-              const convertProcess = await new ffmpeg(
-                `./down/video/finalVideoBlob_${segment}.webm`,
-              );
-              // Convert .webm to .mp4 with compatible codecs
-              convertProcess.setVideoFormat("mp4");
-              // convertProcess.setVideoCodec("libx264"); // H.264 for video
-              // convertProcess.setAudioCodec("aac"); // AAC for audio
-              await convertProcess.save(
-                `./down/video/finalVideoBlob_${segment}.mp4`,
-              );
-              console.log("extracting the thumbnail");
-              //Generate the thumbnail
-              const thumbnailProcess = await new ffmpeg(
-                `./down/video/finalVideoBlob_${segment}.webm`,
-              );
-              try {
-                await thumbnailProcess.fnExtractFrameToJPG(`./down/video`, {
-                  number: 1,
-                  file_name: `Thumbnail_${segment}`,
-                });
-                // fnExtractFrameToJPG already saves the file - no need for save()
-              } catch (e) {
-                console.log("Error in extracting the thumbnail of video", e);
-              }
-              // console.log("Saving the thumbnail video");
-              // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
-              await saveThumbnailToS3(
-                `Thumbnail_${segment}`,
-                "video",
-                meetingId,
-                userId,
-                Number(segment),
-                `./down/video/Thumbnail_${segment}_1.jpg`,
-              );
-              await uploadBlobsToS3(
-                meetingId,
-                userId,
-                "video",
-                "video/mp4",
-                Number(segment),
-                `./down/video/finalVideoBlob_${segment}.mp4`,
-              );
-
-              //Add the filePath to the DB
-              const filePath = `${meetingId}/${userId}/video/${segment}/Final_video_${segment}`;
-              const screenThumbnailFilePath = `${meetingId}/${userId}/video/${segment}/Thumbnail_${segment}`;
-              try {
-                await axios.post(
-                  `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
-                  {
-                    meetingId: meetingId,
-                    userId: userId,
-                    fileType: "video",
-                    segmentNum: Number(segment),
-                    fileKey: filePath,
-                    thumbnailFileKey: screenThumbnailFilePath,
-                  },
-                );
-              } catch (e) {
-                console.log("Error in adding the filepath to db", e);
-              }
-              console.log("DONE UPLOADING THE VIDEO SEGMENT TO CLOUD");
-            } catch (e) {
-              console.log("Error occured in converting to mp4", e);
-            }
-          } catch (e) {
-            console.log("Error occured in writing the final Video file");
-          }
-        }),
-      );
-
-      await Promise.all(
-        screenSegments.map(async (segment) => {
-          const screenBlob: Blob[] = [];
-          const files = fs.readdirSync(`./down/screen/${segment}`);
-          await Promise.all(
-            files.map(async (fileName) => {
-              const file = await fs.openAsBlob(
-                `./down/screen/${segment}/${fileName}`,
-              );
-              screenBlob.push(file);
-            }),
+          videoBlob.push(file);
+        }
+        //create a new blob and save it in the same folder as finalAudioFile
+        const finalVideoBlob = new Blob(videoBlob);
+        // console.log("video blob array is", videoBlob);
+        try {
+          const arrayBuffer = await finalVideoBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(
+            `./down/video/finalVideoBlob_${segment}.webm`,
+            buffer,
           );
-          //create a new blob and save it in the same folder as finalAudioFile
-          const finalScreenBlob = new Blob(screenBlob);
-          console.log("screen blob array is", screenBlob);
-
+          //Convert the .webm file to mp4 file.
+          console.log("Converting the video from webm to mp4");
           try {
-            const arrayBuffer = await finalScreenBlob.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            fs.writeFileSync(
-              `./down/screen/finalScreenBlob_${segment}.webm`,
-              buffer,
-            );
-            //covert the video to mp4.
+            await new Promise<void>((resolve, reject) => {
+              ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
+                .videoCodec("libx264")
+                .audioCodec("aac")
+                .outputOptions([
+                  "-preset fast",
+                  "-crf 23",
+                  "-movflags +faststart",
+                ])
+                .output(`./down/video/finalVideoBlob_${segment}.mp4`)
+                .on("end", () => resolve())
+                .on("error", (err) => reject(err))
+                .run();
+            });
+            console.log("extracting the thumbnail");
+            //Generate the thumbnail
+            const mp4Path = `./down/video/finalVideoBlob_${segment}.mp4`;
 
-            //Convert the .webm file to mp3 file.
             try {
-              const convertProcess = await new ffmpeg(
-                `./down/screen/finalScreenBlob_${segment}.webm`,
-              );
-              // Convert .webm to .mp4 with compatible codecs
-              convertProcess.setVideoFormat("mp4");
-              await convertProcess.save(
-                `./down/screen/finalScreenBlob_${segment}.mp4`,
-              );
-              //Generate the thumbnail
-              const thumbnailProcess = await new ffmpeg(
-                `./down/screen/finalScreenBlob_${segment}.mp4`,
-              );
-              try {
-                await thumbnailProcess.fnExtractFrameToJPG(`./down/screen`, {
-                  number: 1,
-                  file_name: `Thumbnail_${segment}`,
-                });
-                // fnExtractFrameToJPG already saves the file - no need for save()
-              } catch (e) {
-                console.log("error in getting the thumbnail", e);
-              }
-              // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
-              await saveThumbnailToS3(
-                `Thumbnail_${segment}`,
-                "screen",
-                meetingId,
-                userId,
-                Number(segment),
-                `./down/screen/Thumbnail_${segment}_1.jpg`,
-              );
-              await uploadBlobsToS3(
-                meetingId,
-                userId,
-                "screen",
-                "video/mp4",
-                Number(segment),
-                `./down/screen/finalScreenBlob_${segment}.mp4`,
-              );
-              //Add the filePath to the DB
-              const screenfilePath = `${meetingId}/${userId}/screen/${segment}/Final_screen_${segment}`;
-              const screenThumbnailFilePath = `${meetingId}/${userId}/screen/${segment}/Thumbnail_${segment}`;
-              try {
-                await axios.post(
-                  `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
-                  {
-                    meetingId: meetingId,
-                    userId: userId,
-                    fileType: "screen",
-                    segmentNum: Number(segment),
-                    fileKey: screenfilePath,
-                    thumbnailFileKey: screenThumbnailFilePath,
-                  },
-                );
-              } catch (e) {
-                console.log("Error in adding the filepath to db", e);
-              }
-
-              console.log("DONE UPLOADING THE FINAL SCREEN SEGMENT TO CLOUD");
+              await new Promise<void>((resolve, reject) => {
+                ffmpeg(mp4Path)
+                  .screenshots({
+                    count: 1,
+                    folder: "./down/video",
+                    filename: `Thumbnail_${segment}.jpg`,
+                    size: "320x240",
+                    timemarks: ["00:00:01"],
+                  })
+                  .on("end", () => {
+                    console.log("Thumbnail extracted");
+                    resolve();
+                  })
+                  .on("error", (err) => {
+                    console.log("Thumbnail extraction error:", err.message);
+                    reject(err);
+                  });
+              });
             } catch (e) {
-              console.log("Error occured in converting to mp4", e);
+              console.log("error in getting the thumbnail", e);
             }
-          } catch (e) {
-            console.log("Error occured in writing the final Screen file", e);
-          }
-        }),
-      );
+            // console.log("Saving the thumbnail video");
+            // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
+            await saveThumbnailToS3(
+              `Thumbnail_${segment}`,
+              "video",
+              meetingId,
+              userId,
+              Number(segment),
+              `./down/video/Thumbnail_${segment}.jpg`,
+            );
+            await uploadBlobsToS3(
+              meetingId,
+              userId,
+              "video",
+              "video/mp4",
+              Number(segment),
+              `./down/video/finalVideoBlob_${segment}.mp4`,
+            );
 
-      //4. Convert the all the multiple chunks of audio video and screenchunks to .mp3 / .mp4 files using ffmpeg.
-      //5. get the presignedURL to upload the final files to the s3 under the folder name meetingId/userId/final/audio/
-      //6. insert the filepath in the database.
-      //7. delete the files from the servers filesystem.
-      fs.rmSync("./down", { recursive: true });
+            //Add the filePath to the DB
+            const filePath = `${meetingId}/${userId}/video/${segment}/Final_video_${segment}`;
+            const screenThumbnailFilePath = `${meetingId}/${userId}/video/${segment}/Thumbnail_${segment}`;
+            try {
+              await axios.post(
+                `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
+                {
+                  meetingId: meetingId,
+                  userId: userId,
+                  fileType: "video",
+                  segmentNum: Number(segment),
+                  fileKey: filePath,
+                  thumbnailFileKey: screenThumbnailFilePath,
+                },
+              );
+            } catch (e) {
+              console.log("Error in adding the filepath to db", e);
+            }
+            console.log("DONE UPLOADING THE VIDEO SEGMENT TO CLOUD");
+          } catch (e) {
+            console.log("Error occured in converting to mp4", e);
+          }
+        } catch (e) {
+          console.log("Error occured in writing the final Video file");
+        }
+      }
+      console.log("MAKING THE Screen BLOB AND UPLOADING TO S3");
+      for (const segment of screenSegments) {
+        const screenBlob: Blob[] = [];
+        const files = fs.readdirSync(`./down/screen/${segment}`);
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/screen/${segment}/${fileName}`,
+          );
+          screenBlob.push(file);
+        }
+        //create a new blob and save it in the same folder as finalAudioFile
+        const finalScreenBlob = new Blob(screenBlob);
+        // console.log("screen blob array is", screenBlob);
+
+        try {
+          const arrayBuffer = await finalScreenBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(
+            `./down/screen/finalScreenBlob_${segment}.webm`,
+            buffer,
+          );
+          //covert the video to mp4.
+          console.log("Converting the screen blob from webm to mp4");
+          try {
+            const webmPath = `./down/screen/finalScreenBlob_${segment}.webm`;
+            const mp4Path = `./down/screen/finalScreenBlob_${segment}.mp4`;
+            await new Promise<void>((resolve, reject) => {
+              const command = ffmpeg(webmPath)
+                .videoCodec("libx264")
+                .audioCodec("aac")
+                .audioChannels(2)
+                .audioFrequency(48000)
+                .audioBitrate("192k") // Increased for better quality
+                .outputOptions([
+                  "-strict -2", // Allow experimental AAC encoder
+                ])
+                .outputOptions([
+                  // Quality settings - balanced for both static UI and video content
+                  "-crf 18", // Good quality balance (18=high quality, 23=standard)
+                  "-preset medium", // Better quality/compression balance
+
+                  // Pixel format and compatibility
+                  "-pix_fmt yuv420p", // Ensure broad compatibility
+
+                  // Handle variable framerate from MediaRecorder
+                  "-vsync 2", // Passthrough timestamps (VFR to CFR)
+                  "-r 30", // Target 30fps output
+
+                  // NO tune parameter - let x264 use default (balanced for all content)
+                  // This works well for mixed static/dynamic screen content
+
+                  // Scaling to ensure even dimensions
+                  "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2",
+
+                  // Prevent audio/video sync issues
+                  "-max_muxing_queue_size 9999",
+                  "-async 1", // Audio sync
+
+                  // Fast streaming
+                  "-movflags +faststart",
+
+                  // Encoding parameters for mixed content
+                  "-bf 2", // B-frames for compression
+                  "-g 60", // Keyframe every 2 seconds at 30fps
+                  "-profile:v high", // H.264 High Profile for better compression
+                  "-level 4.1", // Wide device compatibility
+                ])
+                .output(mp4Path)
+                .on("start", (cmd) => {
+                  console.log("Starting conversion:", cmd);
+                })
+                .on("progress", (progress) => {
+                  if (progress.percent) {
+                    console.log(`Progress: ${Math.round(progress.percent)}%`);
+                  }
+                })
+                .on("end", () => {
+                  console.log("MP4 conversion complete");
+                  resolve();
+                })
+                .on("error", (err, stdout, stderr) => {
+                  console.log("Conversion error:", err.message);
+                  console.log("FFmpeg stderr:", stderr);
+                  reject(err);
+                });
+
+              command.run();
+            });
+
+            //Generate the thumbnail
+            console.log("Extracting the thumbnail");
+            // const thumbnailProcess = await new ffmpeg(
+            //   `./down/screen/finalScreenBlob_${segment}.webm`,
+            // );
+            try {
+              await new Promise<void>((resolve, reject) => {
+                ffmpeg(mp4Path)
+                  .screenshots({
+                    count: 1,
+                    folder: "./down/screen",
+                    filename: `Thumbnail_${segment}.jpg`,
+                    size: "320x240",
+                    timemarks: ["00:00:02"],
+                  })
+                  .on("end", () => {
+                    console.log("Thumbnail extracted");
+                    resolve();
+                  })
+                  .on("error", (err) => {
+                    console.log("Thumbnail extraction error:", err.message);
+                    reject(err);
+                  });
+              });
+            } catch (e) {
+              console.log("error in getting the thumbnail", e);
+            }
+            // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
+            console.log("Saving the thumbnail to s3");
+
+            await saveThumbnailToS3(
+              `Thumbnail_${segment}`,
+              "screen",
+              meetingId,
+              userId,
+              Number(segment),
+              `./down/screen/Thumbnail_${segment}.jpg`,
+            );
+            console.log("Uploading the final Video to s3");
+            await uploadBlobsToS3(
+              meetingId,
+              userId,
+              "screen",
+              "video/mp4",
+              Number(segment),
+              `./down/screen/finalScreenBlob_${segment}.mp4`,
+            );
+            //Add the filePath to the DB
+            const screenfilePath = `${meetingId}/${userId}/screen/${segment}/Final_screen_${segment}`;
+            const screenThumbnailFilePath = `${meetingId}/${userId}/screen/${segment}/Thumbnail_${segment}`;
+            try {
+              await axios.post(
+                `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
+                {
+                  meetingId: meetingId,
+                  userId: userId,
+                  fileType: "screen",
+                  segmentNum: Number(segment),
+                  fileKey: screenfilePath,
+                  thumbnailFileKey: screenThumbnailFilePath,
+                },
+              );
+            } catch (e) {
+              console.log("Error in adding the filepath to db", e);
+            }
+
+            console.log("DONE UPLOADING THE FINAL SCREEN SEGMENT TO CLOUD");
+          } catch (e) {
+            console.log("Error occured in converting to mp4", e);
+          }
+        } catch (e) {
+          console.log("Error occured in writing the final Screen file", e);
+        }
+      }
+      // fs.rmSync("./down", { recursive: true });
     } catch (e) {
       console.log("axios error", e);
     }

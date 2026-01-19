@@ -20,13 +20,9 @@ enum UploadStatus {
 }
 
 model Recordings {
-  id                  String  @id @default(uuid())
-  meetingId           String
-  userId              String
-  audioChunkFileKey   String?
-  videoChunkFileKey   String?
-  screenShareChunkKey String?
-  thumbnailFileKey    String?
+  id        String @id @default(uuid())
+  meetingId String
+  userId    String
 }
 
 model AudioChunksFilekeys {

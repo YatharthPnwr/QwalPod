@@ -32,7 +32,7 @@ export default function Recordings() {
   const { isLoaded, user } = useUser();
   const router = useRouter();
   const [userThumbnails, setUserThumbnails] = useState<videoFileUrl[] | null>(
-    null
+    null,
   );
   const [loaded, setLoaded] = useState<boolean>(false);
   const [unuploadedChunkStatus, setUnuploadedChunkStatus] =
@@ -49,7 +49,7 @@ export default function Recordings() {
       if (!webWorkerRef.current) {
         //Create a new webworkerscipt
         const webWorker = new Worker(
-          new URL("../../../../public/chunkStore.ts", import.meta.url)
+          new URL("../../../../public/chunkStore.ts", import.meta.url),
         );
         webWorker.onmessage = (e) => {
           const event = e.data.event;
@@ -75,7 +75,7 @@ export default function Recordings() {
             `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/getUserThumbnails`,
             {
               userId: user.id,
-            }
+            },
           );
           setUserThumbnails((prevThumbnails) => [
             ...(prevThumbnails || []),
@@ -252,7 +252,7 @@ export default function Recordings() {
                         className="w-full h-full"
                         onClick={() => {
                           router.push(
-                            `/dashboard/recordings/${recording.meetingId}`
+                            `/dashboard/recordings/${recording.meetingId}`,
                           );
                         }}
                       >
