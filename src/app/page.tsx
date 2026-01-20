@@ -17,10 +17,8 @@ export default function DashBoard() {
         <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
           <div className="cursor-pointer container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
             <div
-              onClick={() => {
-                router.push("/");
-                return;
-              }}
+              onClick={() => router.push("/")}
+              className="cursor-pointer text-xl font-bold tracking-tight hover:opacity-80 transition-opacity"
             >
               QwalPod
             </div>
@@ -130,8 +128,8 @@ export default function DashBoard() {
                 </div>
                 <div className="font-bold text-xl">Hassle free.</div>
                 <div className="p-3 text-wrap  flex items-center flex-col gap-2 flex-1 text-neutral-400 font-sans">
-                  Footage uploads silently after the meeting. No interrupts
-                  during your pod.
+                  Footage uploads automatically during the meeting. No
+                  interrupts during your pod.
                 </div>
               </div>
               <div className="p-3 text-wrap  flex items-center flex-col gap-2 flex-1">
@@ -140,7 +138,8 @@ export default function DashBoard() {
                 </div>
                 <div className="font-bold text-xl">Ready to Edit.</div>
                 <div className="p-3 text-wrap  flex items-center flex-col gap-2 flex-1 text-neutral-400 font-sans">
-                  Get separate, high quality tracks for every guest easily.
+                  Get separate, high quality media tracks for every guest
+                  easily.
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useApplicationContext } from "@/lib/context/ApplicationContext";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { SignedOut, RedirectToSignIn, SignedIn } from "@clerk/nextjs";
 import {
   Empty,
   EmptyDescription,
@@ -30,7 +31,7 @@ export default function Uploading() {
 
         if (event == "AllChunksUploaded") {
           router.push(
-            `/dashboard/recordings/${localStorage.getItem("roomId")}`
+            `/dashboard/recordings/${localStorage.getItem("roomId")}`,
           );
         }
       };
@@ -38,18 +39,23 @@ export default function Uploading() {
   }, [isLoaded, user]);
   return (
     <>
-      <div className="w-full h-screen flex items-center justify-center">
-        <Empty className="w-full">
-          <EmptyHeader>
-            <Spinner className="size-15" />
-            <EmptyTitle>Uploading remaining parts of the podcast</EmptyTitle>
-            <EmptyDescription>
-              Please wait while we upload the remaining chunks. You will
-              automatically be redirected once this is completed.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
-      </div>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+      <SignedIn>
+        <div className="w-full h-screen flex items-center justify-center">
+          <Empty className="w-full">
+            <EmptyHeader>
+              <Spinner className="size-15" />
+              <EmptyTitle>Uploading remaining parts of the podcast</EmptyTitle>
+              <EmptyDescription>
+                Please wait while we upload the remaining chunks. You will
+                automatically be redirected once this is completed.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
+      </SignedIn>
     </>
   );
 }

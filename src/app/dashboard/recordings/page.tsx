@@ -6,6 +6,7 @@ import axios from "axios";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserRound } from "lucide-react";
+import { RedirectToSignIn } from "@clerk/nextjs";
 import {
   SignedIn,
   SignedOut,
@@ -40,8 +41,9 @@ export default function Recordings() {
   const { webWorkerRef } = useApplicationContext();
 
   useEffect(() => {
-    if (isLoaded && !user) {
-      router.push("/");
+    if (!isLoaded && !user) {
+      // router.push("/");
+      console.log("GOING TO SIGN IN ENDPOINT");
       return;
     }
     if (isLoaded && user) {
@@ -92,20 +94,25 @@ export default function Recordings() {
   if (unuploadedChunkStatus) {
     return (
       <>
-        <div className="w-full h-screen flex items-center justify-center">
-          <Empty className="w-full">
-            <EmptyHeader>
-              <Spinner className="size-15" />
-              <EmptyTitle>
-                Checking & Uploading any remaining bits...
-              </EmptyTitle>
-              <EmptyDescription>
-                Please hang tight while we upload the remaining chunks of
-                meetings.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        </div>
+        <SignedOut>
+          <RedirectToSignIn />
+        </SignedOut>
+        <SignedIn>
+          <div className="w-full h-screen flex items-center justify-center">
+            <Empty className="w-full">
+              <EmptyHeader>
+                <Spinner className="size-15" />
+                <EmptyTitle>
+                  Checking & Uploading any remaining bits...
+                </EmptyTitle>
+                <EmptyDescription>
+                  Please hang tight while we upload any remaining chunks of
+                  meetings.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
+        </SignedIn>
       </>
     );
   } else if (!loaded) {
@@ -115,10 +122,8 @@ export default function Recordings() {
           <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
             <div className="cursor-pointer container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
               <div
-                onClick={() => {
-                  router.push("/");
-                  return;
-                }}
+                onClick={() => router.push("/")}
+                className="cursor-pointer text-xl font-bold tracking-tight hover:opacity-80 transition-opacity"
               >
                 QwalPod
               </div>
@@ -177,10 +182,8 @@ export default function Recordings() {
           <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-transparent border-b border-border">
             <div className="cursor-pointer container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
               <div
-                onClick={() => {
-                  router.push("/");
-                  return;
-                }}
+                onClick={() => router.push("/")}
+                className="cursor-pointer text-xl font-bold tracking-tight hover:opacity-80 transition-opacity"
               >
                 QwalPod
               </div>
@@ -225,44 +228,48 @@ export default function Recordings() {
             </div>
           </header>
         </div>
-        <div className="p-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full place-items-center gap-3.5">
-          {userThumbnails &&
-            userThumbnails.map((recording) => {
-              return (
-                <Card
-                  key={recording.meetingId}
-                  className="w-[95%] h-64 rounded-2xl py-0 px-0 overflow-hidden gap-2 "
-                >
-                  <div className="flex flex-col w-full h-full">
-                    <div className="flex-2/3 hover:opacity-50">
-                      {recording.thumbnailUrl && (
-                        <img
-                          src={recording.thumbnailUrl}
-                          className="w-full h-52 object-cover"
-                          alt={`Recording ${recording.meetingId}`}
-                        />
-                      )}
-                      {!recording.thumbnailUrl && (
-                        <UserRound className="w-full h-52" />
-                      )}
-                    </div>
-                    <div className="flex-2/3">
-                      <Button
-                        size={"lg"}
-                        className="w-full h-full"
-                        onClick={() => {
-                          router.push(
-                            `/dashboard/recordings/${recording.meetingId}`,
-                          );
-                        }}
-                      >
-                        Download Pod Assets
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              );
-            })}
+        <div className="w-full flex items-center justify-center">
+          <Card className="w-11/12">
+            <div className="p-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full place-items-center gap-3.5">
+              {userThumbnails &&
+                userThumbnails.map((recording) => {
+                  return (
+                    <Card
+                      key={recording.meetingId}
+                      className="w-[95%] h-64 rounded-2xl py-0 px-0 overflow-hidden gap-2 "
+                    >
+                      <div className="flex flex-col w-full h-full">
+                        <div className="flex-2/3 hover:opacity-50">
+                          {recording.thumbnailUrl && (
+                            <img
+                              src={recording.thumbnailUrl}
+                              className="w-full h-52 object-cover"
+                              alt={`Recording ${recording.meetingId}`}
+                            />
+                          )}
+                          {!recording.thumbnailUrl && (
+                            <UserRound className="w-full h-52" />
+                          )}
+                        </div>
+                        <div className="flex-2/3">
+                          <Button
+                            size={"lg"}
+                            className="w-full h-full"
+                            onClick={() => {
+                              router.push(
+                                `/dashboard/recordings/${recording.meetingId}`,
+                              );
+                            }}
+                          >
+                            Download Pod Assets
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+            </div>
+          </Card>
         </div>
       </div>
     );
