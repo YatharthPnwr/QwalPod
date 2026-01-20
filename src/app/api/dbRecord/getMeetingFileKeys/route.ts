@@ -1,33 +1,73 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
-export async function POST(req: NextRequest) {
+
+export default async function POST(req: NextRequest) {
   const body = await req.json();
-  if (!body.meetingId) {
+
+  if (!body.userId || !body.meetingId) {
     return NextResponse.json(
-      { msg: "Invalid body arguments" },
+      { msg: "Invalid Body arguments" },
       { status: 400 }
     );
   }
+  const { userId, meetingId } = body;
+
+  //Get the audioFile, videoFile, the thumbnailFile, and the screenFile.
   try {
-    const usersAndFileKeys = await prisma.recordings.findMany({
+    const audioRes = await prisma.finalAudioKey.findMany({
       select: {
+        MeetingId: true,
         userId: true,
-        audioFileKey: true,
-        videoFileKey: true,
-        thumbnailFileKey: true,
-        screenShareFileKey: true,
+        segmentNum: true,
+        AudioFileKey: true,
       },
       where: {
-        meetingId: body.meetingId,
+        userId: userId,
+        MeetingId: meetingId,
       },
     });
 
-    return NextResponse.json({
-      usersAndFileKeys,
+    const videoRes = await prisma.finalVideoKey.findMany({
+      select: {
+        MeetingId: true,
+        userId: true,
+        segmentNum: true,
+        VideoFileKey: true,
+        ThumbnailFileKey: true,
+      },
+      where: {
+        userId: userId,
+        MeetingId: meetingId,
+      },
     });
+
+    const screenRes = await prisma.finalScreenFileKey.findMany({
+      select: {
+        MeetingId: true,
+        userId: true,
+        segmentNum: true,
+        ScreenFileKey: true,
+        ThumbnailFileKey: true,
+      },
+      where: {
+        userId: userId,
+        MeetingId: meetingId,
+      },
+    });
+    const res = {
+      audioFileLinks: audioRes,
+      videoFileLinks: videoRes,
+      screenFileLinks: screenRes,
+    };
+    NextResponse.json(
+      {
+        res,
+      },
+      { status: 200 }
+    );
   } catch (e) {
     return NextResponse.json(
-      { msg: "Internal Server error", error: e },
+      { msg: "Could not retrieve the files" },
       { status: 500 }
     );
   }

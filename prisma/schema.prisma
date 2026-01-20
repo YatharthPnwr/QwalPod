@@ -20,14 +20,66 @@ enum UploadStatus {
 }
 
 model Recordings {
-  id                 String       @id @default(uuid())
-  meetingId          String
-  userId             String
-  audioFileKey       String?
-  videoFileKey       String?
-  thumbnailFileKey   String?
-  screenShareFileKey String?
-  status             UploadStatus @default(PENDING)
-
-  @@unique([userId, meetingId])
+  id        String @id @default(uuid())
+  meetingId String
+  userId    String
 }
+
+model AudioChunksFilekeys {
+  chunkNum          Int    @id @default(autoincrement())
+  segmentNum        Int
+  userId            String
+  MeetingId         String
+  AudioChunkFileKey String
+
+  @@unique([MeetingId, AudioChunkFileKey])
+}
+
+model VideoChunksFilekeys {
+  chunkNum          Int    @id @default(autoincrement())
+  segmentNum        Int
+  userId            String
+  MeetingId         String
+  VideoChunkFileKey String
+
+  @@unique([MeetingId, VideoChunkFileKey])
+}
+
+model ScreenShareChunksFilekeys {
+  chunkNum                Int    @id @default(autoincrement())
+  segmentNum              Int
+  userId                  String
+  MeetingId               String
+  ScreenShareChunkFileKey String
+
+  @@unique([MeetingId, ScreenShareChunkFileKey])
+}
+
+//New table to store the final Genearted videos, audios and the thumbnails of the meeting
+model FinalAudioKey {
+  fileNum      Int    @id @default(autoincrement())
+  segmentNum   Int
+  userId       String
+  MeetingId    String
+  AudioFileKey String
+}
+
+model FinalVideoKey {
+  fileNum          Int    @id @default(autoincrement())
+  segmentNum       Int
+  userId           String
+  MeetingId        String
+  VideoFileKey     String
+  ThumbnailFileKey String
+}
+
+model FinalScreenFileKey {
+  fileNum          Int    @id @default(autoincrement())
+  segmentNum       Int
+  userId           String
+  MeetingId        String
+  ScreenFileKey    String
+  ThumbnailFileKey String
+}
+
+//New table to store if all chunks of a meeting have been uploaded.

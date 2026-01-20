@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // type: "screen" | "video" | "audio";
+  // type: "screen" | "video" | "audio"| "thumbnail";
   const body = await req.json();
   if (
     !body.meetingId ||
@@ -25,15 +25,16 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  const { meetingId, userId, fileType, fileKey, segmentNum } = body;
+  const { meetingId, userId, fileType, fileKey, segmentNum, thumbnailFileKey } =
+    body;
   if (fileType == "audio") {
     try {
-      await prisma.audioChunksFilekeys.create({
+      await prisma.finalAudioKey.create({
         data: {
           userId: userId,
           MeetingId: meetingId,
-          AudioChunkFileKey: fileKey,
           segmentNum: segmentNum,
+          AudioFileKey: fileKey,
         },
       });
       return NextResponse.json(
@@ -49,12 +50,13 @@ export async function POST(req: NextRequest) {
     }
   } else if (fileType == "video") {
     try {
-      await prisma.videoChunksFilekeys.create({
+      await prisma.finalVideoKey.create({
         data: {
           userId: userId,
           MeetingId: meetingId,
-          VideoChunkFileKey: fileKey,
+          VideoFileKey: fileKey,
           segmentNum: segmentNum,
+          ThumbnailFileKey: thumbnailFileKey,
         },
       });
       return NextResponse.json(
@@ -70,12 +72,13 @@ export async function POST(req: NextRequest) {
     }
   } else if (fileType == "screen") {
     try {
-      await prisma.screenShareChunksFilekeys.create({
+      await prisma.finalScreenFileKey.create({
         data: {
           userId: userId,
           MeetingId: meetingId,
-          ScreenShareChunkFileKey: fileKey,
+          ScreenFileKey: fileKey,
           segmentNum: segmentNum,
+          ThumbnailFileKey: thumbnailFileKey,
         },
       });
       return NextResponse.json(

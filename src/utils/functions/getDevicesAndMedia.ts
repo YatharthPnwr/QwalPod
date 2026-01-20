@@ -18,18 +18,24 @@ export async function startScreenShare(
   deviceTypeToID: React.RefObject<Map<string, string>>,
   screenShareRecorderRef: React.RefObject<MediaRecorder | null>,
   webWorkerRef: React.RefObject<Worker | null>,
-  userId: string | undefined,
-  roomId: string | undefined,
+  userId: string,
+  roomId: string,
   setSrcScreenShareStream: Dispatch<SetStateAction<MediaStream | undefined>>,
   setScreenShareStatus: Dispatch<SetStateAction<ScreenShareStatus>>,
   ws: React.RefObject<WebSocket | null>,
-  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>
+  latestSrcScreenShareStream: React.RefObject<MediaStream | undefined>,
 ) {
   try {
     if (!userId) {
       console.log("NO USER ID FOUND RETURNING");
       return;
     }
+    const segmentNumber = await getSegmentNumber(
+      webWorkerRef,
+      roomId,
+      userId,
+      true,
+    );
     const displayMedia = await navigator.mediaDevices.getDisplayMedia({
       audio: true,
       video: true,
@@ -50,7 +56,7 @@ export async function startScreenShare(
               userId: userId,
               roomId: roomId,
             },
-          })
+          }),
         );
       };
     });
@@ -59,7 +65,12 @@ export async function startScreenShare(
     latestSrcScreenShareStream.current = displayMedia;
     setSrcScreenShareStream(displayMedia);
     screenShareRecorderRef.current = new MediaRecorder(displayMedia);
-    handleScreenShareRecording(screenShareRecorderRef, webWorkerRef, userId);
+    handleScreenShareRecording(
+      screenShareRecorderRef,
+      webWorkerRef,
+      userId,
+      segmentNumber,
+    );
     deviceTypeToID.current.set(displayMedia.id, "peerScreenShare");
     console.log("THE UPDATED DEVICETYPETOID IS", deviceTypeToID.current);
     peerConnectionInfo.current.forEach((peer) => {
@@ -76,20 +87,60 @@ export async function startScreenShare(
           userId: userId,
           roomId: roomId,
         },
-      })
+      }),
     );
     setScreenShareStatus(ScreenShareStatus.SHARING);
   } catch (e) {
     console.log(e);
   }
 }
-
-export default async function getUserDevices(
-  audioRecorderRef: React.RefObject<MediaRecorder | null>,
-  videoRecorderRef: React.RefObject<MediaRecorder | null>,
-  workerScriptRef: React.RefObject<Worker | null>,
-  userId: string | null
-) {
+//Get the latest segment number
+const getSegmentNumber = async (
+  webWorkerRef: React.RefObject<Worker | null>,
+  roomId: string,
+  userId: string,
+  screenSegment: boolean,
+) => {
+  return new Promise<number>((resolve, reject) => {
+    if (!webWorkerRef.current) {
+      console.log("NO web worker found, creating a new");
+      //create a new worker
+      const workerScript = new Worker(
+        new URL("../../../public/chunkStore.ts", import.meta.url),
+      );
+      webWorkerRef.current = workerScript;
+    }
+    if (screenSegment) {
+      webWorkerRef.current.postMessage({
+        roomId: roomId as string,
+        userId: userId,
+        event: "getScreenShareSegmentNumber",
+      });
+    } else {
+      webWorkerRef.current.postMessage({
+        roomId: roomId as string,
+        userId: userId,
+        event: "getSegmentNumber",
+      });
+    }
+    webWorkerRef.current.onmessage = (e) => {
+      const data = e.data;
+      const event = data.event;
+      if (event === "audioAndVideoSegment") {
+        resolve(data.audioAndVideoSegmentNumber);
+        return;
+      }
+      if (event === "screenSegmentNumber") {
+        resolve(data.screenShareSegmentNumber);
+        return;
+      }
+    };
+    webWorkerRef.current.onerror = (e) => {
+      reject(e);
+    };
+  });
+};
+export default async function getUserDevices() {
   try {
     const audioStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
@@ -99,20 +150,6 @@ export default async function getUserDevices(
       audio: false,
       video: true,
     });
-    console.log("Starting the local recording of media");
-    const audioRecorder = new MediaRecorder(audioStream);
-    const videoRecorder = new MediaRecorder(videoStream);
-    // Log after starting
-    audioRecorderRef.current = audioRecorder;
-    videoRecorderRef.current = videoRecorder;
-    console.log("Handling Recordings");
-    handleRecording(
-      audioRecorderRef,
-      videoRecorderRef,
-      workerScriptRef,
-      userId as string
-    );
-
     return [audioStream, videoStream];
   } catch (e) {
     console.log(e);
@@ -120,25 +157,50 @@ export default async function getUserDevices(
   }
 }
 //Send the blobs of video and audio to the worker script.
-function handleRecording(
+export async function handleRecording(
   audioRecorderRef: React.RefObject<MediaRecorder | null>,
   videoRecorderRef: React.RefObject<MediaRecorder | null>,
+  audioStream: MediaStream,
+  videoStream: MediaStream,
+  roomId: string,
   webWorkerRef: React.RefObject<Worker | null>,
-  userId: string
+  userId: string,
 ) {
-  console.log("handling recordings");
+  //get the streamNumber first then start the recording.
+  //With every saveChunk message send the streamNumber too.
+  //Get the latest segmentId to save the chunks to
+  if (!videoStream || !audioStream) {
+    console.log("No video or No audio stream found returning!!!");
+  }
+  const audioAndVideoSegmentNumber = await getSegmentNumber(
+    webWorkerRef,
+    roomId as string,
+    userId as string,
+    false,
+  );
+  console.log(
+    "The audio And Video Segment Ids are",
+    audioAndVideoSegmentNumber,
+  );
+  console.log("Starting the local recording of media");
+  const audioRecorder = new MediaRecorder(audioStream);
+  const videoRecorder = new MediaRecorder(videoStream);
+  // Log after starting
+  audioRecorderRef.current = audioRecorder;
+  videoRecorderRef.current = videoRecorder;
+
   if (!audioRecorderRef.current || !videoRecorderRef.current) {
     console.log("No audio or video recorders found returning");
     return;
   }
+
   if (!webWorkerRef.current) {
     console.log("NO web worker found, creating a new");
     //create a new worker
     const workerScript = new Worker(
-      new URL("../../../public/chunkStore", import.meta.url)
+      new URL("../../../public/chunkStore", import.meta.url),
     );
     webWorkerRef.current = workerScript;
-    // return;
   }
   audioRecorderRef.current.ondataavailable = (e) => {
     //send the blob to the worker script.
@@ -146,17 +208,22 @@ function handleRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
       // return;
     }
+    //webWorkerRef.current
+    const id = crypto.randomUUID();
+    console.log("The type of chunkis", e.data.type);
+    console.log("Sending chunk save mesg to the worker script with id", id);
     webWorkerRef.current.postMessage({
       roomId: localStorage.getItem("roomId"),
+      id: id,
       userId: userId,
       event: "saveChunk",
       type: "audio",
-      datatype: "blob",
+      segmentNumber: audioAndVideoSegmentNumber,
       chunk: e.data,
     });
   };
@@ -165,17 +232,21 @@ function handleRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
       // return;
     }
+    console.log("The type of chunk is (video)", e.data.type);
+    const id = crypto.randomUUID();
+    console.log("Sending chunk save mesg to the worker script with id", id);
     webWorkerRef.current.postMessage({
+      id: id,
       roomId: localStorage.getItem("roomId"),
       userId: userId,
       event: "saveChunk",
       type: "video",
-      datatype: "blob",
+      segmentNumber: audioAndVideoSegmentNumber,
       chunk: e.data,
     });
   };
@@ -192,16 +263,19 @@ function handleRecording(
 function handleScreenShareRecording(
   screenShareRef: React.RefObject<MediaRecorder | null>,
   webWorkerRef: React.RefObject<Worker | null>,
-  userId: string
+  userId: string,
+  segmentNumber: number,
 ) {
+  console.log("The screen segmentNumber is ", segmentNumber);
+  //Get ScreenShareSegmentNumber first store it in a variable,
+  //Then with each saveChunk msg, send that number to the worker script.
   if (!webWorkerRef.current) {
     console.log("NO web worker found, creating a new");
     //create a new worker
     const workerScript = new Worker(
-      new URL("../../../public/chunkStore", import.meta.url)
+      new URL("../../../public/chunkStore", import.meta.url),
     );
     webWorkerRef.current = workerScript;
-    // return;
   }
   if (!screenShareRef.current) {
     console.log("no screen share recorder found returning");
@@ -214,18 +288,19 @@ function handleScreenShareRecording(
       console.log("NO web worker found, creating a new");
       //create a new worker
       const workerScript = new Worker(
-        new URL("../../../public/chunkStore", import.meta.url)
+        new URL("../../../public/chunkStore", import.meta.url),
       );
       webWorkerRef.current = workerScript;
-      // return;
     }
+    const id = crypto.randomUUID();
     webWorkerRef.current.postMessage({
+      id: id,
       roomId: localStorage.getItem("roomId"),
       userId: userId,
       event: "saveChunk",
       type: "screen",
-      datatype: "blob",
       chunk: e.data,
+      screenShareSegmentNumber: segmentNumber,
     });
   };
   screenShareRef.current.start(5000);
@@ -241,10 +316,10 @@ interface updateMediaInputs {
 export async function updateMediaStream(props: updateMediaInputs) {
   const updatedMediaStream = await navigator.mediaDevices.enumerateDevices();
   const audioOptions = updatedMediaStream.filter(
-    (device) => device.kind === "audioinput"
+    (device) => device.kind === "audioinput",
   );
   const videoOptions = updatedMediaStream.filter(
-    (device) => device.kind === "videoinput"
+    (device) => device.kind === "videoinput",
   );
   props.setAudioInputOptions(audioOptions);
   props.setVideoOptions(videoOptions);
@@ -259,17 +334,8 @@ interface peerConnectionInfo {
 interface switchMediaInputs {
   kind: "audioinput" | "videoinput" | "audiooutput";
   deviceId: string;
-  peerConnectionInfo: React.RefObject<peerConnectionInfo[]>;
-  srcVideoStream: MediaStream | undefined;
   setSrcVideoStream: Dispatch<SetStateAction<MediaStream | undefined>>;
-  srcAudioStream: MediaStream | undefined;
   setSrcAudioStream: Dispatch<SetStateAction<MediaStream | undefined>>;
-  latestSrcAudioStream: React.RefObject<MediaStream | undefined>;
-  latestSrcVideoStream: React.RefObject<MediaStream | undefined>;
-  audioRecorderRef: React.RefObject<MediaRecorder | null>;
-  videoRecorderRef: React.RefObject<MediaRecorder | null>;
-  webWorkerRef: React.RefObject<Worker | null>;
-  userId: string | undefined;
   deviceTypeToID: React.RefObject<Map<string, string>>;
 }
 
@@ -280,33 +346,12 @@ export async function switchMedia(props: switchMediaInputs) {
     };
 
     try {
-      const newAudioStream = await navigator.mediaDevices.getUserMedia(
-        newConstraints
-      );
-
-      // Stop the audio recorder BEFORE stopping tracks
-      if (
-        props.audioRecorderRef.current &&
-        props.audioRecorderRef.current.state === "recording"
-      ) {
-        console.log("Stopping audio recorder before track switch");
-        props.audioRecorderRef.current.stop();
-      }
-
-      // Stop the current stream locally
-      props.srcAudioStream?.getTracks().forEach((track) => {
-        if (track.kind === "audio") {
-          track.stop();
-        }
-      });
-
-      props.latestSrcAudioStream.current = newAudioStream;
+      const newAudioStream =
+        await navigator.mediaDevices.getUserMedia(newConstraints);
 
       props.setSrcAudioStream(newAudioStream);
-      console.log(
-        "Latest src audio stream is set as",
-        props.latestSrcAudioStream.current
-      );
+      console.log("Latest src audio stream is set as", newAudioStream);
+
       //Update the local mapping
       props.deviceTypeToID.current.forEach((value, key) => {
         if (value == "peerAudio") {
@@ -314,43 +359,6 @@ export async function switchMedia(props: switchMediaInputs) {
         }
       });
       props.deviceTypeToID.current.set(newAudioStream.id, "peerAudio");
-
-      // Update peer connections
-      props.peerConnectionInfo.current.forEach((peer) => {
-        const peerConnection = peer.peerConnection;
-        peerConnection.getSenders().forEach((sender) => {
-          if (sender.track?.kind === "audio") {
-            sender.replaceTrack(newAudioStream.getAudioTracks()[0]);
-          }
-        });
-      });
-
-      // Create and start new audio recorder
-      const newAudioRecorder = new MediaRecorder(newAudioStream);
-      props.audioRecorderRef.current = newAudioRecorder;
-
-      // Re-setup audio recording handlers
-      newAudioRecorder.ondataavailable = (e) => {
-        if (!props.webWorkerRef.current) {
-          console.log("NO web worker found returning");
-          return;
-        }
-        props.webWorkerRef.current.postMessage({
-          roomId: localStorage.getItem("roomId"),
-          userId: props.userId,
-          type: "audio",
-          event: "saveChunk",
-          datatype: "blob",
-          chunk: e.data,
-        });
-      };
-
-      newAudioRecorder.onstop = () => {
-        console.log("Audio recording stopped");
-      };
-
-      newAudioRecorder.start(5000);
-      console.log("New audio recorder started");
     } catch (e) {
       console.log("Error switching audio device:", e);
     }
@@ -360,80 +368,15 @@ export async function switchMedia(props: switchMediaInputs) {
     };
 
     try {
-      const newVideoStream = await navigator.mediaDevices.getUserMedia(
-        newVideoConstraints
-      );
-
-      //  Stop the video recorder BEFORE stopping tracks
-      if (
-        props.videoRecorderRef.current &&
-        props.videoRecorderRef.current.state === "recording"
-      ) {
-        console.log("Stopping video recorder before track switch");
-        props.videoRecorderRef.current.stop();
-      }
-
-      // Stop the current stream
-      props.srcVideoStream?.getTracks().forEach((track) => {
-        if (track.kind === "video") {
-          track.stop();
-        }
-      });
+      const newVideoStream =
+        await navigator.mediaDevices.getUserMedia(newVideoConstraints);
       props.setSrcVideoStream(newVideoStream);
-      props.latestSrcVideoStream.current = newVideoStream;
-      //Update the local mapping
       props.deviceTypeToID.current.forEach((value, key) => {
         if (value == "peerVideo") {
           props.deviceTypeToID.current.delete(key);
         }
       });
       props.deviceTypeToID.current.set(newVideoStream.id, "peerVideo");
-
-      // Update peer connections
-      props.peerConnectionInfo.current.forEach((peer) => {
-        const peerConnection = peer.peerConnection;
-        peerConnection.getSenders().forEach((sender) => {
-          if (sender.track?.kind === "video") {
-            //Do not replace the screen share video stream
-            console.log(
-              "the device type to id is",
-              props.deviceTypeToID.current
-            );
-            if (!sender.track.label.includes("screen")) {
-              sender.replaceTrack(newVideoStream.getVideoTracks()[0]);
-            }
-          }
-        });
-      });
-
-      // Create and start new video recorder
-      console.log("Creating new video recorder with new stream");
-      const newVideoRecorder = new MediaRecorder(newVideoStream);
-
-      props.videoRecorderRef.current = newVideoRecorder;
-
-      // Re-setup video recording handlers
-      newVideoRecorder.ondataavailable = (e) => {
-        if (!props.webWorkerRef.current) {
-          console.log("NO web worker found returning");
-          return;
-        }
-        props.webWorkerRef.current.postMessage({
-          roomId: localStorage.getItem("roomId"),
-          type: "video",
-          userId: props.userId,
-          event: "saveChunk",
-          datatype: "blob",
-          chunk: e.data,
-        });
-      };
-
-      newVideoRecorder.onstop = () => {
-        console.log("Video recording stopped");
-      };
-
-      newVideoRecorder.start(5000);
-      console.log("New video recorder started");
     } catch (e) {
       console.log("Error switching video device:", e);
     }
