@@ -186,7 +186,7 @@ export default function PodAssets() {
                       />
                       <div>
                         <h2 className="font-semibold text-lg">
-                          {userData.userName || user?.firstName}'s Assets
+                          {userData.userName || user?.firstName}&apos;s Assets
                         </h2>
                         <p className="text-sm text-muted-foreground">
                           {userData.video.length +

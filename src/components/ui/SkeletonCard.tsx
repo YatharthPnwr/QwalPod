@@ -1,15 +1,6 @@
-import { Skeleton } from "./skeleton";
 import { Card } from "./card";
 //The name will be a segmentCard
-export default function SkeletonCard({
-  videoUrl,
-  audioUrl,
-  screenUrl,
-}: {
-  videoUrl: string;
-  audioUrl: string;
-  screenUrl?: string;
-}) {
+export default function SkeletonCard() {
   return (
     <div className="h-full grid w-9/12 p-1 place-items-center gap-5">
       <Card className="w-full h-full flex items-center justify-center">

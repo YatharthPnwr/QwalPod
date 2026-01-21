@@ -35,7 +35,7 @@ interface getAllFileAccessURLResponse {
 
 const connection = new IORedis({ maxRetriesPerRequest: null });
 
-const worker = new Worker(
+new Worker(
   "consolidateFiles",
   async (job) => {
     //JOB WILL CONTAIN the meetingID and the userID
@@ -293,7 +293,7 @@ const worker = new Worker(
             console.log("Error occured in converting to mp4", e);
           }
         } catch (e) {
-          console.log("Error occured in writing the final Audio file");
+          console.log("Error occured in writing the final Audio file", e);
         }
       }
 
@@ -402,7 +402,7 @@ const worker = new Worker(
             console.log("Error occured in converting to mp4", e);
           }
         } catch (e) {
-          console.log("Error occured in writing the final Video file");
+          console.log("Error occured in writing the final Video file", e);
         }
       }
       console.log("MAKING THE Screen BLOB AND UPLOADING TO S3");
@@ -613,22 +613,22 @@ async function uploadBlobsToS3(
   );
 
   // get uploadId
-  let { uploadId } = response.data;
+  const { uploadId } = response.data;
   // console.log("UploadId for the multiparts upload is -", uploadId);
 
   // get total size of the finalFile
-  let totalSize = fileBuffer.byteLength;
+  const totalSize = fileBuffer.byteLength;
   // set chunk size to 10MB
-  let chunkSize = 10000000;
+  const chunkSize = 10000000;
   // calculate number of chunks
-  let numChunks = Math.ceil(totalSize / chunkSize);
+  const numChunks = Math.ceil(totalSize / chunkSize);
 
   // console.log("Total file size:", totalSize);
   // console.log("Chunk size:", chunkSize);
   // console.log("Number of chunks:", numChunks);
 
   // generate presigned urls
-  let presignedUrls_response = await axios.post(
+  const presignedUrls_response = await axios.post(
     `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/getPresignedURLs`,
     {
       fileName: `Final_${typeOfFile}_${segmentNumber}`,
@@ -641,16 +641,16 @@ async function uploadBlobsToS3(
     },
   );
 
-  let presigned_urls = presignedUrls_response?.data?.presignedUrls;
+  const presigned_urls = presignedUrls_response?.data?.presignedUrls;
 
   // upload the finalFile into chunks to different presigned url
-  let parts: any = [];
+  const parts: any = [];
   const uploadPromises = [];
   for (let i = 0; i < numChunks; i++) {
-    let start = i * chunkSize;
-    let end = Math.min(start + chunkSize, totalSize);
-    let chunk = fileBuffer.subarray(start, end);
-    let presignedUrl = presigned_urls[i];
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize, totalSize);
+    const chunk = fileBuffer.subarray(start, end);
+    const presignedUrl = presigned_urls[i];
     try {
       uploadPromises.push(
         axios.put(presignedUrl, chunk, {
@@ -678,7 +678,7 @@ async function uploadBlobsToS3(
   });
 
   // make a call to multipart complete api
-  let complete_upload = await axios.post(
+  const complete_upload = await axios.post(
     `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/completeMultipartUpload`,
     {
       fileName: `Final_${typeOfFile}_${segmentNumber}`,
@@ -691,7 +691,7 @@ async function uploadBlobsToS3(
     },
   );
 
-  // console.log("Complete upload- ", complete_upload.data);
+  console.log("Complete upload- ", complete_upload.data);
 }
 
 async function saveThumbnailToS3(

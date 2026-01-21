@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
-import { getGETPresignedURL } from "@/utils/functions/getGETPresignedURL";
 import { clerkClient } from "@/lib/clerk/clerkClient";
 import { s3 } from "@/lib/aws/awsS3Client";
 
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
       {
         msg: "invalid body arguments",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
   const { meetingId } = body;
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
           {
             msg: "Invalid userId",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const username = (await userInfo).username;
@@ -161,12 +160,12 @@ export async function POST(req: NextRequest) {
 
       const userId = user.userId;
       getAllFilesResponse[userId] = res;
-    })
+    }),
   );
   return NextResponse.json(
     {
       getAllFilesResponse,
     },
-    { status: 200 }
+    { status: 200 },
   );
 }

@@ -16,12 +16,6 @@ const consolidateFilesQueue = new Queue("consolidateFiles", {
 //   }
 // }
 export async function addJobs(jobName: string, jobToAdd: any) {
-  //   const alreadyPresentJob = await checkExistingJob(JobToAdd);
-  //   if (alreadyPresentJob) {
-  //     console.log("Already added this job");
-  //   } else {
-  //     await myQueue.add(jobName, JobToAdd);
-  //   }
   console.log("TRYING TO ADD A JOB TO THE QUEUE");
   await consolidateFilesQueue.add(jobName, jobToAdd);
 }

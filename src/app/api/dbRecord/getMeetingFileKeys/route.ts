@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma/client";
 
-export default async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) {
   const body = await req.json();
 
   if (!body.userId || !body.meetingId) {
     return NextResponse.json(
       { msg: "Invalid Body arguments" },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const { userId, meetingId } = body;
@@ -63,12 +63,13 @@ export default async function POST(req: NextRequest) {
       {
         res,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
+    console.log("Error occured while fetching the meeting files", e);
     return NextResponse.json(
       { msg: "Could not retrieve the files" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
