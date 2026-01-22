@@ -18,7 +18,7 @@ nextApp.prepare().then(() => {
   const server: Server = createServer(
     (req: IncomingMessage, res: ServerResponse) => {
       handle(req, res, parse(req.url || "", true));
-    }
+    },
   );
 
   const wss = new WebSocketServer({ noServer: true });
@@ -51,8 +51,8 @@ nextApp.prepare().then(() => {
             data.offer,
             new Map(Object.entries(data.streamMetaData)),
             data.fromId,
-            data.toId
-          )
+            data.toId,
+          ),
         );
         ws.send(res);
       }
@@ -66,8 +66,8 @@ nextApp.prepare().then(() => {
             data.answer,
             data.fromId,
             data.toId,
-            new Map(Object.entries(data.streamMetaData))
-          )
+            new Map(Object.entries(data.streamMetaData)),
+          ),
         );
         ws.send(res);
       }
@@ -79,8 +79,8 @@ nextApp.prepare().then(() => {
             data.roomId,
             data.iceCandidate,
             data.fromId,
-            data.toId
-          )
+            data.toId,
+          ),
         );
         ws.send(res);
       }
@@ -100,6 +100,15 @@ nextApp.prepare().then(() => {
         await podMan.disconnecting(roomId, user);
       }
     });
+
+    // Handle cleanup when connection closes
+    ws.on("close", () => {
+      console.log("WebSocket connection closed");
+    });
+
+    ws.on("error", (error) => {
+      console.error("WebSocket error:", error);
+    });
   });
 
   server.on("upgrade", (req: IncomingMessage, socket: Socket, head: Buffer) => {
@@ -107,15 +116,22 @@ nextApp.prepare().then(() => {
 
     if (pathname === "/_next/webpack-hmr") {
       nextApp.getUpgradeHandler()(req, socket, head);
+      return; // ADD THIS RETURN
     }
 
     if (pathname === "/api/ws") {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
+      return; // ADD THIS RETURN
     }
+
+    // If no matching path, destroy the socket
+    socket.destroy();
   });
 
-  server.listen(3000);
-  console.log("Server listening on port 3000");
+  const port = process.env.PORT || 3000;
+  server.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
 });

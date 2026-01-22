@@ -40,7 +40,7 @@ export default function Dashboard() {
         router.push(`/podcast/${roomId}`);
       }
     };
-  });
+  }, []);
   return (
     <div className="w-screen">
       <SignedOut>
