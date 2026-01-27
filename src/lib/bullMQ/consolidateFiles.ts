@@ -320,27 +320,41 @@ new Worker(
           //Convert the .webm file to mp4 file.
           console.log("Converting the video from webm to mp4");
           try {
-            await new Promise<void>((resolve, reject) => {
-              ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
-                .videoCodec("libx264")
-                .audioCodec("aac")
-                .outputOptions([
-                  "-preset fast",
-                  "-crf 23",
-                  "-movflags +faststart",
-                ])
-                .output(`./down/video/finalVideoBlob_${segment}.mp4`)
-                .on("end", () => resolve())
-                .on("error", (err) => reject(err))
-                .run();
-            });
+            // await new Promise<void>((resolve, reject) => {
+            //   ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
+            //     .videoCodec("libx264")
+            //     .audioCodec("aac")
+            //     .outputOptions([
+            //       // COMPATIBILITY - works on ALL devices
+            //       "-preset fast",
+            //       "-crf 23",
+            //       "-profile:v baseline", // Most compatible profile
+            //       "-level 3.1", // Works on older devices
+            //       "-pix_fmt yuv420p", // Required for compatibility
+
+            //       // KEYFRAMES - prevents stuck playback
+            //       "-g 30",
+            //       "-keyint_min 30",
+            //       "-sc_threshold 0",
+
+            //       // PLAYBACK
+            //       "-movflags +faststart",
+
+            //       // CPU management
+            //       "-threads 2",
+            //     ])
+            //     .output(`./down/video/finalVideoBlob_${segment}.mp4`)
+            //     .on("end", () => resolve())
+            //     .on("error", (err) => reject(err))
+            //     .run();
+            // });
             console.log("extracting the thumbnail");
             //Generate the thumbnail
             const mp4Path = `./down/video/finalVideoBlob_${segment}.mp4`;
 
             try {
               await new Promise<void>((resolve, reject) => {
-                ffmpeg(mp4Path)
+                ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
                   .screenshots({
                     count: 1,
                     folder: "./down/video",
@@ -374,9 +388,9 @@ new Worker(
               meetingId,
               userId,
               "video",
-              "video/mp4",
+              "video/webm",
               Number(segment),
-              `./down/video/finalVideoBlob_${segment}.mp4`,
+              `./down/video/finalVideoBlob_${segment}.webm`,
             );
 
             //Add the filePath to the DB
@@ -431,68 +445,55 @@ new Worker(
           try {
             const webmPath = `./down/screen/finalScreenBlob_${segment}.webm`;
             const mp4Path = `./down/screen/finalScreenBlob_${segment}.mp4`;
-            await new Promise<void>((resolve, reject) => {
-              const command = ffmpeg(webmPath)
-                .videoCodec("libx264")
-                .audioCodec("aac")
-                .audioChannels(2)
-                .audioFrequency(48000)
-                .audioBitrate("192k") // Increased for better quality
-                .outputOptions([
-                  "-strict -2", // Allow experimental AAC encoder
-                ])
-                .outputOptions([
-                  // Quality settings - balanced for both static UI and video content
-                  "-crf 18", // Good quality balance (18=high quality, 23=standard)
-                  "-preset medium", // Better quality/compression balance
+            // await new Promise<void>((resolve, reject) => {
+            //   const command = ffmpeg(webmPath)
+            //     .videoCodec("libx264")
+            //     .audioCodec("aac")
+            //     .audioChannels(2)
+            //     .audioFrequency(48000)
+            //     .audioBitrate("128k")
+            //     .outputOptions([
+            //       // COMPATIBILITY - works on ALL devices
+            //       "-preset fast",
+            //       "-crf 23",
+            //       "-profile:v baseline",
+            //       "-level 3.1",
+            //       "-pix_fmt yuv420p",
 
-                  // Pixel format and compatibility
-                  "-pix_fmt yuv420p", // Ensure broad compatibility
+            //       // KEYFRAMES - prevents stuck playback
+            //       "-g 30",
+            //       "-keyint_min 30",
+            //       "-sc_threshold 0",
 
-                  // Handle variable framerate from MediaRecorder
-                  "-vsync 2", // Passthrough timestamps (VFR to CFR)
-                  "-r 30", // Target 30fps output
+            //       // PLAYBACK
+            //       "-movflags +faststart",
 
-                  // NO tune parameter - let x264 use default (balanced for all content)
-                  // This works well for mixed static/dynamic screen content
+            //       // Keep these
+            //       "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            //       "-max_muxing_queue_size 9999",
+            //       "-threads 2",
+            //     ])
+            //     .output(mp4Path)
+            //     .on("start", (cmd) => {
+            //       console.log("Starting conversion:", cmd);
+            //     })
+            //     .on("progress", (progress) => {
+            //       if (progress.percent) {
+            //         console.log(`Progress: ${Math.round(progress.percent)}%`);
+            //       }
+            //     })
+            //     .on("end", () => {
+            //       console.log("MP4 conversion complete");
+            //       resolve();
+            //     })
+            //     .on("error", (err, stdout, stderr) => {
+            //       console.log("Conversion error:", err.message);
+            //       console.log("FFmpeg stderr:", stderr);
+            //       reject(err);
+            //     });
 
-                  // Scaling to ensure even dimensions
-                  "-vf scale=trunc(iw/2)*2:trunc(ih/2)*2",
-
-                  // Prevent audio/video sync issues
-                  "-max_muxing_queue_size 9999",
-                  "-async 1", // Audio sync
-
-                  // Fast streaming
-                  "-movflags +faststart",
-
-                  // Encoding parameters for mixed content
-                  "-bf 2", // B-frames for compression
-                  "-g 60", // Keyframe every 2 seconds at 30fps
-                  "-profile:v high", // H.264 High Profile for better compression
-                  "-level 4.1", // Wide device compatibility
-                ])
-                .output(mp4Path)
-                .on("start", (cmd) => {
-                  console.log("Starting conversion:", cmd);
-                })
-                .on("progress", (progress) => {
-                  if (progress.percent) {
-                    console.log(`Progress: ${Math.round(progress.percent)}%`);
-                  }
-                })
-                .on("end", () => {
-                  console.log("MP4 conversion complete");
-                  resolve();
-                })
-                .on("error", (err, stdout, stderr) => {
-                  console.log("Conversion error:", err.message);
-                  console.log("FFmpeg stderr:", stderr);
-                  reject(err);
-                });
-
-              command.run();
-            });
+            //   command.run();
+            // });
 
             //Generate the thumbnail
             console.log("Extracting the thumbnail");
@@ -501,7 +502,7 @@ new Worker(
             // );
             try {
               await new Promise<void>((resolve, reject) => {
-                ffmpeg(mp4Path)
+                ffmpeg(webmPath)
                   .screenshots({
                     count: 1,
                     folder: "./down/screen",
@@ -537,9 +538,9 @@ new Worker(
               meetingId,
               userId,
               "screen",
-              "video/mp4",
+              "video/webm",
               Number(segment),
-              `./down/screen/finalScreenBlob_${segment}.mp4`,
+              `./down/screen/finalScreenBlob_${segment}.webm`,
             );
             //Add the filePath to the DB
             const screenfilePath = `${meetingId}/${userId}/screen/${segment}/Final_screen_${segment}`;
@@ -594,7 +595,7 @@ async function uploadBlobsToS3(
   meetingId: string,
   userId: string,
   typeOfFile: "audio" | "video" | "screen",
-  contentType: "audio/mp3" | "video/mp4",
+  contentType: "audio/mp3" | "video/mp4" | "video/webm" | "audio/webm",
   segmentNumber: number,
   filePath: string,
 ) {

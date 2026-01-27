@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         const link = s3.getSignedUrl("getObject", {
           Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
           Key: segment.VideoFileKey,
-          ResponseContentDisposition: `attachment; filename=${user.userId}_video_${segment.segmentNum}.mp4`,
+          ResponseContentDisposition: `attachment; filename=${user.userId}_video_${segment.segmentNum}.webm`,
           Expires: 60 * 60 * 10, //10 hours
         });
         const thumbnailLink = s3.getSignedUrl("getObject", {
@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
         const link = s3.getSignedUrl("getObject", {
           Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
           Key: segment.ScreenFileKey,
-          ResponseContentDisposition: `attachment; filename=${user.userId}_screen_${segment.segmentNum}.mp4`,
+          ResponseContentDisposition: `attachment; filename=${user.userId}_screen_${segment.segmentNum}.webm`,
           Expires: 60 * 60 * 10, //10 hours
         });
         const thumbnailLink = s3.getSignedUrl("getObject", {
