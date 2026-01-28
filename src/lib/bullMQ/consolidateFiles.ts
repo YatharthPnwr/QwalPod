@@ -230,36 +230,36 @@ new Worker(
       for (const segment of audioSegments) {
         const audioBlob: Blob[] = [];
         const files = fs.readdirSync(`./down/audio/${segment}`).sort();
-
-        // Create concat file for ffmpeg
-        const concatFilePath = `./down/audio/concat_${segment}.txt`;
-        const concatContent = files
-          .map((f) => `file '${segment}/${f}'`)
-          .join("\n");
-        fs.writeFileSync(concatFilePath, concatContent);
-
-        // Use ffmpeg concat demuxer to properly merge with duration
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/audio/${segment}/${fileName}`,
+          );
+          audioBlob.push(file);
+        }
+        // Create blob from chunks
+        const finalAudioBlob = new Blob(audioBlob);
         try {
+          const arrayBuffer = await finalAudioBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(`./down/audio/rawAudioBlob_${segment}.webm`, buffer);
+
+          // Remux with ffmpeg to fix duration metadata
           await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-              .input(concatFilePath)
-              .inputOptions(["-f concat", "-safe 0"])
+            ffmpeg(`./down/audio/rawAudioBlob_${segment}.webm`)
               .outputOptions(["-c copy"])
               .output(`./down/audio/finalAudioBlob_${segment}.webm`)
               .on("end", () => {
-                console.log(
-                  "Audio concatenation complete with proper duration",
-                );
+                console.log("Audio remux complete with proper duration");
                 resolve();
               })
               .on("error", (err) => {
-                console.log("Audio concatenation error:", err);
+                console.log("Audio remux error:", err);
                 reject(err);
               })
               .run();
           });
         } catch (e) {
-          console.log("Error occured in audio concatenation", e);
+          console.log("Error occurred in audio remux", e);
         }
 
         try {
@@ -317,36 +317,35 @@ new Worker(
       for (const segment of videoSegments) {
         const videoBlob: Blob[] = [];
         const files = fs.readdirSync(`./down/video/${segment}`).sort();
-
-        // Create concat file for ffmpeg
-        const concatFilePath = `./down/video/concat_${segment}.txt`;
-        const concatContent = files
-          .map((f) => `file '${segment}/${f}'`)
-          .join("\n");
-        fs.writeFileSync(concatFilePath, concatContent);
-
-        // Use ffmpeg concat demuxer to properly merge with duration
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/video/${segment}/${fileName}`,
+          );
+          videoBlob.push(file);
+        }
+        // Create blob from chunks
+        const finalVideoBlob = new Blob(videoBlob);
         try {
+          const arrayBuffer = await finalVideoBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(`./down/video/rawVideoBlob_${segment}.webm`, buffer);
+
+          // Remux with ffmpeg to fix duration metadata
           await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-              .input(concatFilePath)
-              .inputOptions(["-f concat", "-safe 0"])
+            ffmpeg(`./down/video/rawVideoBlob_${segment}.webm`)
               .outputOptions(["-c copy"])
               .output(`./down/video/finalVideoBlob_${segment}.webm`)
               .on("end", () => {
-                console.log(
-                  "Video concatenation complete with proper duration",
-                );
+                console.log("Video remux complete with proper duration");
                 resolve();
               })
               .on("error", (err) => {
-                console.log("Video concatenation error:", err);
+                console.log("Video remux error:", err);
                 reject(err);
               })
               .run();
           });
-          //Convert the .webm file to mp4 file.
-          console.log("Converting the video from webm to mp4");
+          console.log("Consolidated the video");
         } catch (e) {
           console.log("Error occured in video concatenation", e);
         }
@@ -452,30 +451,33 @@ new Worker(
       for (const segment of screenSegments) {
         const screenBlob: Blob[] = [];
         const files = fs.readdirSync(`./down/screen/${segment}`).sort();
-
-        // Create concat file for ffmpeg
-        const concatFilePath = `./down/screen/concat_${segment}.txt`;
-        const concatContent = files
-          .map((f) => `file '${segment}/${f}'`)
-          .join("\n");
-        fs.writeFileSync(concatFilePath, concatContent);
-
-        // Use ffmpeg concat demuxer to properly merge with duration
+        for (const fileName of files) {
+          const file = await fs.openAsBlob(
+            `./down/screen/${segment}/${fileName}`,
+          );
+          screenBlob.push(file);
+        }
+        // Create blob from chunks
+        const finalScreenBlob = new Blob(screenBlob);
         try {
+          const arrayBuffer = await finalScreenBlob.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          fs.writeFileSync(
+            `./down/screen/rawScreenBlob_${segment}.webm`,
+            buffer,
+          );
+
+          // Remux with ffmpeg to fix duration metadata
           await new Promise<void>((resolve, reject) => {
-            ffmpeg()
-              .input(concatFilePath)
-              .inputOptions(["-f concat", "-safe 0"])
+            ffmpeg(`./down/screen/rawScreenBlob_${segment}.webm`)
               .outputOptions(["-c copy"])
               .output(`./down/screen/finalScreenBlob_${segment}.webm`)
               .on("end", () => {
-                console.log(
-                  "Screen concatenation complete with proper duration",
-                );
+                console.log("Screen remux complete with proper duration");
                 resolve();
               })
               .on("error", (err) => {
-                console.log("Screen concatenation error:", err);
+                console.log("Screen remux error:", err);
                 reject(err);
               })
               .run();
