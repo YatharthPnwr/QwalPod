@@ -229,24 +229,40 @@ new Worker(
       console.log("MAKING THE AUDIO BLOB AND UPLOADING TO S3");
       for (const segment of audioSegments) {
         const audioBlob: Blob[] = [];
-        const files = fs.readdirSync(`./down/audio/${segment}`);
-        for (const fileName of files) {
-          const file = await fs.openAsBlob(
-            `./down/audio/${segment}/${fileName}`,
-          );
-          audioBlob.push(file);
-        }
-        //create a new blob and save it in the same folder as finalAudioFile
-        const finalAudioBlob = new Blob(audioBlob);
-        // console.log("audio blob array is", audioBlob);
-        try {
-          const arrayBuffer = await finalAudioBlob.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          fs.writeFileSync(
-            `./down/audio/finalAudioBlob_${segment}.webm`,
-            buffer,
-          );
+        const files = fs.readdirSync(`./down/audio/${segment}`).sort();
 
+        // Create concat file for ffmpeg
+        const concatFilePath = `./down/audio/concat_${segment}.txt`;
+        const concatContent = files
+          .map((f) => `file '${segment}/${f}'`)
+          .join("\n");
+        fs.writeFileSync(concatFilePath, concatContent);
+
+        // Use ffmpeg concat demuxer to properly merge with duration
+        try {
+          await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+              .input(concatFilePath)
+              .inputOptions(["-f concat", "-safe 0"])
+              .outputOptions(["-c copy"])
+              .output(`./down/audio/finalAudioBlob_${segment}.webm`)
+              .on("end", () => {
+                console.log(
+                  "Audio concatenation complete with proper duration",
+                );
+                resolve();
+              })
+              .on("error", (err) => {
+                console.log("Audio concatenation error:", err);
+                reject(err);
+              })
+              .run();
+          });
+        } catch (e) {
+          console.log("Error occured in audio concatenation", e);
+        }
+
+        try {
           try {
             await new Promise<void>((resolve, reject) => {
               ffmpeg(`./down/audio/finalAudioBlob_${segment}.webm`)
@@ -300,146 +316,175 @@ new Worker(
       console.log("MAKING THE VIDEO BLOB AND UPLOADING TO S3");
       for (const segment of videoSegments) {
         const videoBlob: Blob[] = [];
-        const files = fs.readdirSync(`./down/video/${segment}`);
-        for (const fileName of files) {
-          const file = await fs.openAsBlob(
-            `./down/video/${segment}/${fileName}`,
-          );
-          videoBlob.push(file);
-        }
-        //create a new blob and save it in the same folder as finalAudioFile
-        const finalVideoBlob = new Blob(videoBlob);
-        // console.log("video blob array is", videoBlob);
+        const files = fs.readdirSync(`./down/video/${segment}`).sort();
+
+        // Create concat file for ffmpeg
+        const concatFilePath = `./down/video/concat_${segment}.txt`;
+        const concatContent = files
+          .map((f) => `file '${segment}/${f}'`)
+          .join("\n");
+        fs.writeFileSync(concatFilePath, concatContent);
+
+        // Use ffmpeg concat demuxer to properly merge with duration
         try {
-          const arrayBuffer = await finalVideoBlob.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          fs.writeFileSync(
-            `./down/video/finalVideoBlob_${segment}.webm`,
-            buffer,
-          );
+          await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+              .input(concatFilePath)
+              .inputOptions(["-f concat", "-safe 0"])
+              .outputOptions(["-c copy"])
+              .output(`./down/video/finalVideoBlob_${segment}.webm`)
+              .on("end", () => {
+                console.log(
+                  "Video concatenation complete with proper duration",
+                );
+                resolve();
+              })
+              .on("error", (err) => {
+                console.log("Video concatenation error:", err);
+                reject(err);
+              })
+              .run();
+          });
           //Convert the .webm file to mp4 file.
           console.log("Converting the video from webm to mp4");
-          try {
-            // await new Promise<void>((resolve, reject) => {
-            //   ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
-            //     .videoCodec("libx264")
-            //     .audioCodec("aac")
-            //     .outputOptions([
-            //       // COMPATIBILITY - works on ALL devices
-            //       "-preset fast",
-            //       "-crf 23",
-            //       "-profile:v baseline", // Most compatible profile
-            //       "-level 3.1", // Works on older devices
-            //       "-pix_fmt yuv420p", // Required for compatibility
-
-            //       // KEYFRAMES - prevents stuck playback
-            //       "-g 30",
-            //       "-keyint_min 30",
-            //       "-sc_threshold 0",
-
-            //       // PLAYBACK
-            //       "-movflags +faststart",
-
-            //       // CPU management
-            //       "-threads 2",
-            //     ])
-            //     .output(`./down/video/finalVideoBlob_${segment}.mp4`)
-            //     .on("end", () => resolve())
-            //     .on("error", (err) => reject(err))
-            //     .run();
-            // });
-            console.log("extracting the thumbnail");
-            //Generate the thumbnail
-            const mp4Path = `./down/video/finalVideoBlob_${segment}.mp4`;
-
-            try {
-              await new Promise<void>((resolve, reject) => {
-                ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
-                  .screenshots({
-                    count: 1,
-                    folder: "./down/video",
-                    filename: `Thumbnail_${segment}.jpg`,
-                    size: "320x240",
-                    timemarks: ["00:00:01"],
-                  })
-                  .on("end", () => {
-                    console.log("Thumbnail extracted");
-                    resolve();
-                  })
-                  .on("error", (err) => {
-                    console.log("Thumbnail extraction error:", err.message);
-                    reject(err);
-                  });
-              });
-            } catch (e) {
-              console.log("error in getting the thumbnail", e);
-            }
-            // console.log("Saving the thumbnail video");
-            // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
-            await saveThumbnailToS3(
-              `Thumbnail_${segment}`,
-              "video",
-              meetingId,
-              userId,
-              Number(segment),
-              `./down/video/Thumbnail_${segment}.jpg`,
-            );
-            await uploadBlobsToS3(
-              meetingId,
-              userId,
-              "video",
-              "video/webm",
-              Number(segment),
-              `./down/video/finalVideoBlob_${segment}.webm`,
-            );
-
-            //Add the filePath to the DB
-            const filePath = `${meetingId}/${userId}/video/${segment}/Final_video_${segment}`;
-            const screenThumbnailFilePath = `${meetingId}/${userId}/video/${segment}/Thumbnail_${segment}`;
-            try {
-              await axios.post(
-                `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
-                {
-                  meetingId: meetingId,
-                  userId: userId,
-                  fileType: "video",
-                  segmentNum: Number(segment),
-                  fileKey: filePath,
-                  thumbnailFileKey: screenThumbnailFilePath,
-                },
-              );
-            } catch (e) {
-              console.log("Error in adding the filepath to db", e);
-            }
-            console.log("DONE UPLOADING THE VIDEO SEGMENT TO CLOUD");
-          } catch (e) {
-            console.log("Error occured in converting to mp4", e);
-          }
         } catch (e) {
-          console.log("Error occured in writing the final Video file", e);
+          console.log("Error occured in video concatenation", e);
+        }
+
+        try {
+          // await new Promise<void>((resolve, reject) => {
+          //   ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
+          //     .videoCodec("libx264")
+          //     .audioCodec("aac")
+          //     .outputOptions([
+          //       // COMPATIBILITY - works on ALL devices
+          //       "-preset fast",
+          //       "-crf 23",
+          //       "-profile:v baseline", // Most compatible profile
+          //       "-level 3.1", // Works on older devices
+          //       "-pix_fmt yuv420p", // Required for compatibility
+
+          //       // KEYFRAMES - prevents stuck playback
+          //       "-g 30",
+          //       "-keyint_min 30",
+          //       "-sc_threshold 0",
+
+          //       // PLAYBACK
+          //       "-movflags +faststart",
+
+          //       // CPU management
+          //       "-threads 2",
+          //     ])
+          //     .output(`./down/video/finalVideoBlob_${segment}.mp4`)
+          //     .on("end", () => resolve())
+          //     .on("error", (err) => reject(err))
+          //     .run();
+          // });
+          console.log("extracting the thumbnail");
+          //Generate the thumbnail
+          const mp4Path = `./down/video/finalVideoBlob_${segment}.mp4`;
+
+          try {
+            await new Promise<void>((resolve, reject) => {
+              ffmpeg(`./down/video/finalVideoBlob_${segment}.webm`)
+                .screenshots({
+                  count: 1,
+                  folder: "./down/video",
+                  filename: `Thumbnail_${segment}.jpg`,
+                  size: "320x240",
+                  timemarks: ["00:00:01"],
+                })
+                .on("end", () => {
+                  console.log("Thumbnail extracted");
+                  resolve();
+                })
+                .on("error", (err) => {
+                  console.log("Thumbnail extraction error:", err.message);
+                  reject(err);
+                });
+            });
+          } catch (e) {
+            console.log("error in getting the thumbnail", e);
+          }
+          // console.log("Saving the thumbnail video");
+          // fnExtractFrameToJPG outputs files as {file_name}_{frame_number}.jpg
+          await saveThumbnailToS3(
+            `Thumbnail_${segment}`,
+            "video",
+            meetingId,
+            userId,
+            Number(segment),
+            `./down/video/Thumbnail_${segment}.jpg`,
+          );
+          await uploadBlobsToS3(
+            meetingId,
+            userId,
+            "video",
+            "video/webm",
+            Number(segment),
+            `./down/video/finalVideoBlob_${segment}.webm`,
+          );
+
+          //Add the filePath to the DB
+          const filePath = `${meetingId}/${userId}/video/${segment}/Final_video_${segment}`;
+          const screenThumbnailFilePath = `${meetingId}/${userId}/video/${segment}/Thumbnail_${segment}`;
+          try {
+            await axios.post(
+              `${process.env.NEXT_PUBLIC_JS_BACKEND_URL}/api/dbRecord/addFinalFileKeys`,
+              {
+                meetingId: meetingId,
+                userId: userId,
+                fileType: "video",
+                segmentNum: Number(segment),
+                fileKey: filePath,
+                thumbnailFileKey: screenThumbnailFilePath,
+              },
+            );
+          } catch (e) {
+            console.log("Error in adding the filepath to db", e);
+          }
+          console.log("DONE UPLOADING THE VIDEO SEGMENT TO CLOUD");
+        } catch (e) {
+          console.log("Error occured in converting to mp4", e);
         }
       }
       console.log("MAKING THE Screen BLOB AND UPLOADING TO S3");
       for (const segment of screenSegments) {
         const screenBlob: Blob[] = [];
-        const files = fs.readdirSync(`./down/screen/${segment}`);
-        for (const fileName of files) {
-          const file = await fs.openAsBlob(
-            `./down/screen/${segment}/${fileName}`,
-          );
-          screenBlob.push(file);
+        const files = fs.readdirSync(`./down/screen/${segment}`).sort();
+
+        // Create concat file for ffmpeg
+        const concatFilePath = `./down/screen/concat_${segment}.txt`;
+        const concatContent = files
+          .map((f) => `file '${segment}/${f}'`)
+          .join("\n");
+        fs.writeFileSync(concatFilePath, concatContent);
+
+        // Use ffmpeg concat demuxer to properly merge with duration
+        try {
+          await new Promise<void>((resolve, reject) => {
+            ffmpeg()
+              .input(concatFilePath)
+              .inputOptions(["-f concat", "-safe 0"])
+              .outputOptions(["-c copy"])
+              .output(`./down/screen/finalScreenBlob_${segment}.webm`)
+              .on("end", () => {
+                console.log(
+                  "Screen concatenation complete with proper duration",
+                );
+                resolve();
+              })
+              .on("error", (err) => {
+                console.log("Screen concatenation error:", err);
+                reject(err);
+              })
+              .run();
+          });
+        } catch (e) {
+          console.log("Error occured in screen concatenation", e);
         }
-        //create a new blob and save it in the same folder as finalAudioFile
-        const finalScreenBlob = new Blob(screenBlob);
-        // console.log("screen blob array is", screenBlob);
 
         try {
-          const arrayBuffer = await finalScreenBlob.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          fs.writeFileSync(
-            `./down/screen/finalScreenBlob_${segment}.webm`,
-            buffer,
-          );
           //covert the video to mp4.
           console.log("Converting the screen blob from webm to mp4");
           try {
