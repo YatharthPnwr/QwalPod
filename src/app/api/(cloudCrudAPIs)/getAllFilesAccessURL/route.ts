@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!body.meetingId || !body.userId) {
     return NextResponse.json(
       { msg: "Invalid body arguments" },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const meetingId = body.meetingId;
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
             ScreenShareChunkFileKey: "asc",
           },
         ],
-      }
+      },
     );
 
     //Organise all the chunks according to the segment numbers
@@ -90,13 +90,12 @@ export async function POST(req: NextRequest) {
     if (audioChunkFileKeys.length > 0) {
       audioChunkFileKeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
-        const fileURL = getGETPresignedURL(
-          chunk.AudioChunkFileKey,
-          `audio_chunk_${userId}`
+        const fileURL = toCdnUrl(
+          getGETPresignedURL(chunk.AudioChunkFileKey, `audio_chunk_${userId}`),
         );
         if (
           Object.keys(finalAudioChunksKeys.audioChunkKeys).includes(
-            segmentNum.toString()
+            segmentNum.toString(),
           )
         ) {
           //The segment is already created
@@ -114,13 +113,12 @@ export async function POST(req: NextRequest) {
     if (videoChunksFilekeys.length > 0) {
       videoChunksFilekeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
-        const fileURL = getGETPresignedURL(
-          chunk.VideoChunkFileKey,
-          `video_chunk_${userId}`
+        const fileURL = toCdnUrl(
+          getGETPresignedURL(chunk.VideoChunkFileKey, `video_chunk_${userId}`),
         );
         if (
           Object.keys(finalVideoChunkKeys.videoChunkKeys).includes(
-            chunk.segmentNum.toString()
+            chunk.segmentNum.toString(),
           )
         ) {
           //The segment is already present
@@ -138,18 +136,21 @@ export async function POST(req: NextRequest) {
     if (screenChunkFilekeys.length > 0) {
       screenChunkFilekeys.map((chunk) => {
         const segmentNum = chunk.segmentNum;
-        const fileURL = getGETPresignedURL(
-          chunk.ScreenShareChunkFileKey,
-          `screen_chunk_${userId}`
+        const fileURL = toCdnUrl(
+          getGETPresignedURL(
+            chunk.ScreenShareChunkFileKey,
+            `screen_chunk_${userId}`,
+          ),
         );
+        console.log("THE CDN LINK IS", fileURL);
         if (
           Object.keys(
-            finalScreenAudioAndVideoChunkKeys.screenChunkKeys
+            finalScreenAudioAndVideoChunkKeys.screenChunkKeys,
           ).includes(chunk.segmentNum.toString())
         ) {
           //the object for that segment number already exists
           finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum].push(
-            fileURL
+            fileURL,
           );
         } else {
           finalScreenAudioAndVideoChunkKeys.screenChunkKeys[segmentNum] = [
@@ -164,12 +165,16 @@ export async function POST(req: NextRequest) {
         videoChunkSegments: finalVideoChunkKeys,
         screenChunkSegments: finalScreenAudioAndVideoChunkKeys,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (e) {
     return NextResponse.json(
       { msg: "Internal Server error", error: e },
-      { status: 500 }
+      { status: 500 },
     );
   }
+}
+
+function toCdnUrl(url: string) {
+  return url.replace(".digitaloceanspaces.com", ".cdn.digitaloceanspaces.com");
 }

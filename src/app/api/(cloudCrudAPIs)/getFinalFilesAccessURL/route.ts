@@ -106,12 +106,14 @@ export async function POST(req: NextRequest) {
       };
 
       audioRes.map((segment) => {
-        const link = s3.getSignedUrl("getObject", {
-          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: segment.AudioFileKey,
-          ResponseContentDisposition: `attachment; filename=${user.userId}_audio_${segment.segmentNum}.mp3`,
-          Expires: 60 * 60 * 10, //10 hours
-        });
+        const link = toCdnUrl(
+          s3.getSignedUrl("getObject", {
+            Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+            Key: segment.AudioFileKey,
+            ResponseContentDisposition: `attachment; filename=${user.userId}_audio_${segment.segmentNum}.mp3`,
+            Expires: 60 * 60 * 10, //10 hours
+          }),
+        );
         res.audio.push({
           segNumber: segment.segmentNum,
           link: link,
@@ -119,18 +121,22 @@ export async function POST(req: NextRequest) {
       });
 
       videoRes.map((segment) => {
-        const link = s3.getSignedUrl("getObject", {
-          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: segment.VideoFileKey,
-          ResponseContentDisposition: `attachment; filename=${user.userId}_video_${segment.segmentNum}.webm`,
-          Expires: 60 * 60 * 10, //10 hours
-        });
-        const thumbnailLink = s3.getSignedUrl("getObject", {
-          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: segment.ThumbnailFileKey,
-          ResponseContentDisposition: `inline; filename=${user.userId}_thumbnail_${segment.segmentNum}.jpg`,
-          Expires: 60 * 60 * 10,
-        });
+        const link = toCdnUrl(
+          s3.getSignedUrl("getObject", {
+            Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+            Key: segment.VideoFileKey,
+            ResponseContentDisposition: `attachment; filename=${user.userId}_video_${segment.segmentNum}.webm`,
+            Expires: 60 * 60 * 10, //10 hours
+          }),
+        );
+        const thumbnailLink = toCdnUrl(
+          s3.getSignedUrl("getObject", {
+            Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+            Key: segment.ThumbnailFileKey,
+            ResponseContentDisposition: `inline; filename=${user.userId}_thumbnail_${segment.segmentNum}.jpg`,
+            Expires: 60 * 60 * 10,
+          }),
+        );
         res.video.push({
           segNumber: segment.segmentNum,
           link: link,
@@ -139,18 +145,22 @@ export async function POST(req: NextRequest) {
       });
 
       screenRes.map((segment) => {
-        const link = s3.getSignedUrl("getObject", {
-          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: segment.ScreenFileKey,
-          ResponseContentDisposition: `attachment; filename=${user.userId}_screen_${segment.segmentNum}.webm`,
-          Expires: 60 * 60 * 10, //10 hours
-        });
-        const thumbnailLink = s3.getSignedUrl("getObject", {
-          Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
-          Key: segment.ThumbnailFileKey,
-          ResponseContentDisposition: `inline; filename=${user.userId}_screen_thumbnail_${segment.segmentNum}.jpg`,
-          Expires: 60 * 60 * 10,
-        });
+        const link = toCdnUrl(
+          s3.getSignedUrl("getObject", {
+            Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+            Key: segment.ScreenFileKey,
+            ResponseContentDisposition: `attachment; filename=${user.userId}_screen_${segment.segmentNum}.webm`,
+            Expires: 60 * 60 * 10, //10 hours
+          }),
+        );
+        const thumbnailLink = toCdnUrl(
+          s3.getSignedUrl("getObject", {
+            Bucket: process.env.NEXT_PUBLIC_AWS_S3_BUCKET_NAME,
+            Key: segment.ThumbnailFileKey,
+            ResponseContentDisposition: `inline; filename=${user.userId}_screen_thumbnail_${segment.segmentNum}.jpg`,
+            Expires: 60 * 60 * 10,
+          }),
+        );
         res.screen.push({
           segNumber: segment.segmentNum,
           link: link,
@@ -168,4 +178,8 @@ export async function POST(req: NextRequest) {
     },
     { status: 200 },
   );
+}
+
+function toCdnUrl(url: string) {
+  return url.replace(".digitaloceanspaces.com", ".cdn.digitaloceanspaces.com");
 }
